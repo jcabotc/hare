@@ -1,6 +1,6 @@
 # Hare
 
-**TODO: Add description**
+Tools and abstractions to manage AMQP stuff.
 
 ## Installation
 
