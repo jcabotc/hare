@@ -1,0 +1,2 @@
+defmodule Hare do
+end
