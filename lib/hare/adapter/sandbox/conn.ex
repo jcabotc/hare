@@ -1,14 +1,14 @@
 defmodule Hare.Adapter.Sandbox.Conn do
   alias __MODULE__
-  alias __MODULE__.{Pid, History}
+  alias __MODULE__.{Pid, History, OnConnect}
 
   defstruct [:pid, :history]
 
   def open(config) do
-    {:ok, pid} = Pid.start_link
-    history    = get_history(config)
-
-    {:ok, %Conn{pid: pid, history: history}}
+    case Keyword.fetch(config, :on_connect) do
+      {:ok, on_connect} -> handle_on_connect(on_connect, config)
+      :error            -> {:ok, new(config)}
+    end
   end
 
   def monitor(%Conn{pid: pid}) do
@@ -25,6 +25,20 @@ defmodule Hare.Adapter.Sandbox.Conn do
 
   def register(%Conn{history: history}, event) do
     History.push(history, event)
+  end
+
+  defp handle_on_connect(on_connect, config) do
+    case OnConnect.pop(on_connect) do
+      :ok   -> {:ok, new(config)}
+      other -> other
+    end
+  end
+
+  defp new(config) do
+    {:ok, pid} = Pid.start_link
+    history    = get_history(config)
+
+    %Conn{pid: pid, history: history}
   end
 
   defp get_history(config) do

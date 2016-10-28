@@ -5,6 +5,10 @@ defmodule Hare.Adapter.Sandbox.Backdoor do
     Conn.History.start_link(opts)
   end
 
+  def on_connect(results, opts \\ []) do
+    Conn.OnConnect.start_link(results, opts)
+  end
+
   def events(history) do
     Conn.History.events(history)
   end

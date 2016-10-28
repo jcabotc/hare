@@ -5,13 +5,20 @@ defmodule Hare.Adapter.SandboxTest do
   alias Hare.Adapter.Sandbox.Backdoor
 
   test "connect/1 and disconnect/1 with history and on_connect" do
-    {:ok, history} = Backdoor.start_history
-    config = [history: history]
+    {:ok, history}    = Backdoor.start_history
+    {:ok, on_connect} = Backdoor.on_connect([{:error, :one}, {:error, :two}, :ok])
 
-    assert {:ok, conn} = Adapter.open_connection(config)
-    ref                = Adapter.monitor_connection(conn)
-    assert true        = Adapter.link_connection(conn)
-    assert :ok         = Adapter.close_connection(conn)
+    config = [history:    history,
+              on_connect: on_connect]
+
+    assert {:error, :one} = Adapter.open_connection(config)
+    assert {:error, :two} = Adapter.open_connection(config)
+    assert {:ok, conn}    = Adapter.open_connection(config)
+
+    ref         = Adapter.monitor_connection(conn)
+    assert true = Adapter.link_connection(conn)
+
+    assert :ok = Adapter.close_connection(conn)
 
     expected_events = [{:open_connection,    [config], {:ok, conn}},
                        {:monitor_connection, [conn],   ref},
