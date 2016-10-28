@@ -27,4 +27,13 @@ defmodule Hare.Adapter.SandboxTest do
 
     assert expected_events == Backdoor.events(history)
   end
+
+  test "crash connection" do
+    {:ok, conn} = Adapter.open_connection([])
+    ref         = Adapter.monitor_connection(conn)
+
+    Backdoor.unlink(conn)
+    Backdoor.crash(conn, :simulated)
+    assert_receive {:DOWN, ^ref, _, _, :simulated}
+  end
 end

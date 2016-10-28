@@ -19,6 +19,10 @@ defmodule Hare.Adapter.Sandbox.Conn do
     Process.link(pid)
   end
 
+  def unlink(%Conn{pid: pid}) do
+    Process.unlink(pid)
+  end
+
   def stop(%Conn{pid: pid}, reason \\ :normal) do
     Pid.stop(pid, reason)
   end

@@ -12,4 +12,12 @@ defmodule Hare.Adapter.Sandbox.Backdoor do
   def events(history) do
     Conn.History.events(history)
   end
+
+  def unlink(%Conn{} = conn) do
+    Conn.unlink(conn)
+  end
+
+  def crash(%Conn{} = conn, reason \\ :simulated_crash) do
+    Conn.stop(conn, reason)
+  end
 end
