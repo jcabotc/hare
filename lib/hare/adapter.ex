@@ -3,6 +3,8 @@ defmodule Hare.Adapter do
   Specification of the AMQP adapter
   """
 
+  @type opts :: Keyword.t
+
   # Connection
   #
   @type conn :: term
@@ -33,5 +35,25 @@ defmodule Hare.Adapter do
               true
 
   @callback close_channel(chan) ::
+              :ok
+
+  # Declare
+  #
+  @type exchange :: binary
+  @type queue    :: binary
+
+  @callback declare_exchange(chan, exchange, type :: atom, opts) ::
+              :ok | {:error, reason :: term}
+
+  @callback declare_queue(chan, queue, opts) ::
+              {:ok, info :: term} | {:error, term}
+
+  @callback declare_server_named_queue(chan, opts) ::
+              {:ok, queue, info :: term} | {:error, term}
+
+  @callback bind(chan, queue, exchange, opts) ::
+              :ok
+
+  @callback unbind(chan, queue, exchange, opts) ::
               :ok
 end

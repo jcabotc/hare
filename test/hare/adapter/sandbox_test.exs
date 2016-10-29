@@ -86,7 +86,7 @@ defmodule Hare.Adapter.SandboxTest do
     Process.flag(:trap_exit, true)
     {:ok, conn} = Adapter.open_connection([])
 
-    assert {:ok, chan}  = Adapter.open_channel(conn)
+    assert {:ok, chan} = Adapter.open_channel(conn)
 
     ref = Adapter.monitor_channel(chan)
     assert true ==  Adapter.link_channel(chan)
@@ -105,5 +105,17 @@ defmodule Hare.Adapter.SandboxTest do
     Adapter.Backdoor.crash(conn, :simulated_crash)
     assert_receive {:DOWN, ^ref, _, _, :simulated_crash}
     refute_receive {:EXIT, _from, :simulated_crash}, 10
+  end
+
+  test "declare exchange, queue, server named queue, bind and unbind" do
+    {:ok, conn} = Adapter.open_connection([])
+    {:ok, chan} = Adapter.open_channel(conn)
+
+    assert :ok        == Adapter.declare_exchange(chan, "foo", :direct, [])
+    assert {:ok, %{}} == Adapter.declare_queue(chan, "bar", [])
+    assert :ok        == Adapter.bind(chan, "foo", "bar", [])
+    assert :ok        == Adapter.unbind(chan, "foo", "bar", [])
+
+    assert {:ok, "generated_name_" <> _, %{}} = Adapter.declare_server_named_queue(chan, [])
   end
 end

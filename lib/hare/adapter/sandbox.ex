@@ -48,6 +48,29 @@ defmodule Hare.Adapter.Sandbox do
     register(chan, {:close_channel, [chan], result})
   end
 
+  # Declare
+  #
+  def declare_exchange(chan, exchange, type, opts) do
+    register(chan, {:declare_exchange, [chan, exchange, type, opts], :ok})
+  end
+
+  def declare_queue(chan, queue, opts) do
+    register(chan, {:declare_queue, [chan, queue, opts], {:ok, %{}}})
+  end
+
+  def declare_server_named_queue(chan, opts) do
+    name = "generated_name_#{:rand.uniform(10000)}"
+    register(chan, {:declare_queue, [chan, opts], {:ok, name, %{}}})
+  end
+
+  def bind(chan, queue, exchange, opts) do
+    register(chan, {:bind, [chan, queue, exchange, opts], :ok})
+  end
+
+  def unbind(chan, queue, exchange, opts) do
+    register(chan, {:unbind, [chan, queue, exchange, opts], :ok})
+  end
+
   # Helpers
   #
   defp register(%Conn{} = conn, event),
