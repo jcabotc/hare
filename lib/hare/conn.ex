@@ -30,8 +30,8 @@ defmodule Hare.Conn do
     {:stop, reason, state}
   end
 
-  def handle_call({:close, reason}, state) do
-    {:disconnect, reason, state}
+  def handle_call({:close, reason}, _from, state) do
+    {:disconnect, reason, :ok, state}
   end
 
   def handle_info({:DOWN, ref, _, _, _reason}, %{ref: ref} = state) do
