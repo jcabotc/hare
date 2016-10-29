@@ -1,7 +1,7 @@
 defmodule Hare.Conn.State do
   alias __MODULE__
   alias __MODULE__.{Bridge, Waiting}
-  alias Hare.Channel
+  alias Hare.Chan
 
   defstruct [:bridge, :waiting, :reply]
 
@@ -35,7 +35,7 @@ defmodule Hare.Conn.State do
   end
 
   defp handle_open_channel({:ok, given_chan}, %{bridge: bridge}, _client) do
-    {:ok, Channel.new(given_chan, bridge.adapter)}
+    {:ok, Chan.new(given_chan, bridge.adapter)}
   end
   defp handle_open_channel(:not_connected, %{waiting: waiting} = state, client) do
     {:wait, %{state | waiting: Waiting.push(waiting, client)}}

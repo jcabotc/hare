@@ -1,7 +1,7 @@
 defmodule Hare.ConnTest do
   use ExUnit.Case, async: true
 
-  alias Hare.{Conn, Channel}
+  alias Hare.{Conn, Chan}
   alias Hare.Adapter.Sandbox, as: Adapter
 
   test "opening channels" do
@@ -18,7 +18,7 @@ defmodule Hare.ConnTest do
     assert {:error, :chan_one} = Conn.open_channel(pid)
 
     assert {:ok, channel} = Conn.open_channel(pid)
-    assert %Channel{given: given_chan, adapter: Adapter} = channel
+    assert %Chan{given: given_chan, adapter: Adapter} = channel
 
     assert :ok = Conn.stop(pid)
 
