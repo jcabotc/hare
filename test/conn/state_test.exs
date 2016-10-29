@@ -5,12 +5,8 @@ defmodule Hare.Conn.StateTest do
   alias Hare.Adapter.Sandbox, as: Adapter
 
   test "connection lifecycle" do
-    steps = [{:error, :one},
-             {:error, :two},
-             {:error, :three},
-             :ok,
-             {:error, :four},
-             :ok]
+    steps = [{:error, :one}, {:error, :two}, {:error, :three}, :ok,
+             {:error, :four}, :ok]
 
     {:ok, history}    = Adapter.Backdoor.start_history
     {:ok, on_connect} = Adapter.Backdoor.on_connect(steps)
@@ -25,9 +21,14 @@ defmodule Hare.Conn.StateTest do
     assert {:backoff, 1000, :three, state} = State.connect(state)
     assert %{status: :reconnecting} = state
 
+    assert {:error, :reconnecting} = State.open_channel(state)
+
     assert {:ok, state} = State.connect(state)
     assert %{status: :connected, conn: conn_1, ref: ref_1} = state
 
+    assert {:ok, chan} = State.open_channel(state)
+
+    Adapter.Backdoor.unlink(chan)
     Adapter.Backdoor.unlink(state.conn)
     Adapter.Backdoor.crash(state.conn, :simulated_crash)
     assert_receive {:DOWN, ^ref_1, :process, _pid, :simulated_crash}
@@ -41,6 +42,7 @@ defmodule Hare.Conn.StateTest do
 
     expected_events = [{:open_connection,    [adapter_config], {:ok, conn_1}},
                        {:monitor_connection, [conn_1],         ref_1},
+                       {:open_channel,       [conn_1],         {:ok, chan}},
                        {:open_connection,    [adapter_config], {:ok, conn_2}},
                        {:monitor_connection, [conn_2],         ref_2},
                        {:close_connection,   [conn_2],         :ok}]

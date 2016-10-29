@@ -1,22 +1,17 @@
 defmodule Hare.Conn.State do
   alias __MODULE__
 
-  defstruct adapter:        nil,
-            backoff:        nil,
-            next_intervals: nil,
-            config:         [],
-            conn:           nil,
-            ref:            nil,
-            status:         :not_connected
+  defstruct [:adapter, :config,
+             :backoff, :next_intervals,
+             :conn, :ref, :status]
 
   def new(config) do
     adapter = Keyword.fetch!(config, :adapter)
     backoff = Keyword.fetch!(config, :backoff)
     config  = Keyword.fetch!(config, :config)
 
-    %State{adapter: adapter,
-           backoff: backoff,
-           config:  config}
+    %State{adapter: adapter, backoff: backoff, config: config}
+    |> set_not_connected
   end
 
   def connect(%State{adapter: adapter, config: config} = state) do
@@ -24,6 +19,11 @@ defmodule Hare.Conn.State do
     |> adapter.open_connection
     |> handle_connect(state)
   end
+
+  def open_channel(%State{adapter: adapter, conn: conn, status: :connected}),
+    do: adapter.open_channel(conn)
+  def open_channel(%State{status: status}),
+    do: {:error, status}
 
   def disconnect(%State{adapter: adapter, conn: conn, status: :connected} = state) do
     adapter.close_connection(conn)

@@ -1,13 +1,11 @@
 defmodule Hare.Adapter.Sandbox.Chan.Pid do
   use GenServer
 
-  def start_link(monitor_conn) do
-    GenServer.start_link(__MODULE__, monitor_conn)
-  end
+  def start_link(monitor_conn),
+    do: GenServer.start_link(__MODULE__, monitor_conn)
 
-  def stop(pid, reason) do
-    GenServer.cast(pid, {:stop, reason})
-  end
+  def stop(pid, reason),
+    do: GenServer.cast(pid, {:stop, reason})
 
   def init(monitor_conn) do
     ref = monitor_conn.()
