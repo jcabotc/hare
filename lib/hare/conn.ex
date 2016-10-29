@@ -44,7 +44,7 @@ defmodule Hare.Conn do
   defp handle_connection_try({:ok, new_bridge}, state) do
     {:ok, %{state | bridge: new_bridge}}
   end
-  defp handle_connection_try({:backoff, interval, _reason, new_bridge}, state) do
-    {:backoff, interval, %{state | bridge: new_bridge}}
+  defp handle_connection_try({:retry, interval, _reason, new_bridge}, state) do
+    {:retry, interval, %{state | bridge: new_bridge}}
   end
 end

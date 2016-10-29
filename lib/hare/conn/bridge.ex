@@ -39,7 +39,7 @@ defmodule Hare.Conn.Bridge do
   end
   defp handle_connect({:error, reason}, %{status: :reconnecting} = bridge) do
     {interval, new_state} = pop_interval(bridge)
-    {:backoff, interval, reason, new_state}
+    {:retry, interval, reason, new_state}
   end
   defp handle_connect(error, bridge) do
     handle_connect(error, set_reconnecting(bridge))

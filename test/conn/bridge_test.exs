@@ -16,9 +16,9 @@ defmodule Hare.Conn.BridgeTest do
                         backoff: [100, 1000],
                         config:  adapter_config)
 
-    assert {:backoff, 100,  :one,   bridge} = Bridge.connect(bridge)
-    assert {:backoff, 1000, :two,   bridge} = Bridge.connect(bridge)
-    assert {:backoff, 1000, :three, bridge} = Bridge.connect(bridge)
+    assert {:retry, 100,  :one,   bridge} = Bridge.connect(bridge)
+    assert {:retry, 1000, :two,   bridge} = Bridge.connect(bridge)
+    assert {:retry, 1000, :three, bridge} = Bridge.connect(bridge)
     assert %{status: :reconnecting} = bridge
 
     assert {:error, :not_connected} = Bridge.open_channel(bridge)
@@ -33,7 +33,7 @@ defmodule Hare.Conn.BridgeTest do
     Adapter.Backdoor.crash(bridge.given, :simulated_crash)
     assert_receive {:DOWN, ^ref_1, :process, _pid, :simulated_crash}
 
-    assert {:backoff, 100, :four, bridge} = Bridge.connect(bridge)
+    assert {:retry, 100, :four, bridge} = Bridge.connect(bridge)
 
     assert {:ok, bridge} = Bridge.connect(bridge)
     assert %{status: :connected, given: given_2, ref: ref_2} = bridge
