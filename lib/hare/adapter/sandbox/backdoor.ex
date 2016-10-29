@@ -6,7 +6,10 @@ defmodule Hare.Adapter.Sandbox.Backdoor do
   end
 
   def on_connect(results, opts \\ []) do
-    Conn.OnConnect.start_link(results, opts)
+    Conn.Stack.start_link(results, opts)
+  end
+  def on_channel_open(results, opts \\ []) do
+    Conn.Stack.start_link(results, opts)
   end
 
   def events(history) do
@@ -26,6 +29,6 @@ defmodule Hare.Adapter.Sandbox.Backdoor do
     Conn.stop(conn, reason)
   end
   def crash(%Chan{} = chan, reason) do
-    Chan.stop(chan, reason)
+    Chan.close(chan, reason)
   end
 end

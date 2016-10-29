@@ -45,21 +45,65 @@ defmodule Hare.Adapter.SandboxTest do
     assert_receive {:DOWN, ^ref, _, _, :simulated}
   end
 
-  test "channel open, monitor, link, close on crash" do
-    {:ok, history} = Adapter.Backdoor.start_history
+  test "channel open, monitor, close with on_channel_open" do
+    Process.flag(:trap_exit, true)
 
-    config = [history: history]
+    steps = [{:error, :one}, :ok,
+             {:error, :two}, :ok]
+
+    {:ok, history}         = Adapter.Backdoor.start_history
+    {:ok, on_channel_open} = Adapter.Backdoor.on_channel_open(steps)
+
+    config = [history: history, on_channel_open: on_channel_open]
     {:ok, conn} = Adapter.open_connection(config)
 
-    assert {:ok, chan} = Adapter.open_channel(conn)
+    assert {:error, :one} = Adapter.open_channel(conn)
+    assert {:ok, chan_1}  = Adapter.open_channel(conn)
+
+    ref = Adapter.monitor_channel(chan_1)
+    assert true ==  Adapter.link_channel(chan_1)
+
+    assert :ok = Adapter.close_channel(chan_1)
+    assert_receive {:DOWN, ^ref, _, _, :normal}
+    assert_receive {:EXIT, _from, :normal}
+
+    assert {:error, :two} = Adapter.open_channel(conn)
+    assert {:ok, chan_2}  = Adapter.open_channel(conn)
+
+    expected_events = [{:open_connection, [config], {:ok, conn}},
+                       {:open_channel,    [conn],   {:error, :one}},
+                       {:open_channel,    [conn],   {:ok, chan_1}},
+                       {:monitor_channel, [chan_1], ref},
+                       {:link_channel,    [chan_1], true},
+                       {:close_channel,   [chan_1], :ok},
+                       {:open_channel,    [conn],   {:error, :two}},
+                       {:open_channel,    [conn],   {:ok, chan_2}}]
+
+    assert expected_events == Adapter.Backdoor.events(history)
+  end
+
+  test "channel on crash and on connection crash" do
+    Process.flag(:trap_exit, true)
+    {:ok, conn} = Adapter.open_connection([])
+
+    assert {:ok, chan}  = Adapter.open_channel(conn)
 
     ref = Adapter.monitor_channel(chan)
-    assert true == Adapter.link_channel(chan)
+    assert true ==  Adapter.link_channel(chan)
 
-    Process.flag(:trap_exit, true)
     Adapter.Backdoor.crash(chan, :simulated_crash)
-
     assert_receive {:DOWN, ^ref, _, _, :simulated_crash}
     assert_receive {:EXIT, _from, :simulated_crash}
+
+    assert {:ok, chan}  = Adapter.open_channel(conn)
+
+    ref = Adapter.monitor_channel(chan)
+    assert true ==  Adapter.link_channel(chan)
+    assert true ==  Adapter.unlink_channel(chan)
+
+    Adapter.Backdoor.unlink(conn)
+    Adapter.Backdoor.crash(conn, :simulated_crash)
+    assert_receive {:DOWN, ^ref, _, _, {:connection_down, :simulated_crash}}
+    refute_receive {:EXIT, _from, {:connection_down, :simulated_crash}}, 10
   end
 end

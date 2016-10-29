@@ -1,8 +1,8 @@
 defmodule Hare.Adapter.Sandbox.Conn do
   alias __MODULE__
-  alias __MODULE__.{Pid, History, OnConnect}
+  alias __MODULE__.{Pid, History, Stack}
 
-  defstruct [:pid, :history]
+  defstruct [:pid, :history, :on_channel_open]
 
   def open(config) do
     case Keyword.fetch(config, :on_connect) do
@@ -11,51 +11,40 @@ defmodule Hare.Adapter.Sandbox.Conn do
     end
   end
 
-  def monitor(%Conn{pid: pid}) do
-    Process.monitor(pid)
-  end
+  def monitor(%Conn{pid: pid}),
+    do: Process.monitor(pid)
 
-  def link(%Conn{pid: pid}) do
-    Process.link(pid)
-  end
+  def link(%Conn{pid: pid}),
+    do: Process.link(pid)
 
-  def unlink(%Conn{pid: pid}) do
-    Process.unlink(pid)
-  end
+  def unlink(%Conn{pid: pid}),
+    do: Process.unlink(pid)
 
-  def stop(%Conn{pid: pid}, reason \\ :normal) do
-    Pid.stop(pid, reason)
-  end
+  def stop(%Conn{pid: pid}, reason \\ :normal),
+    do: Pid.stop(pid, reason)
 
-  def register(%Conn{history: history}, event) do
-    History.push(history, event)
-  end
+  def register(%Conn{history: history}, event),
+    do: History.push(history, event)
+
+  def on_channel_open(%Conn{on_channel_open: nil}),
+    do: :ok
+  def on_channel_open(%Conn{on_channel_open: on_channel_open}),
+    do: Stack.pop(on_channel_open)
 
   defp handle_on_connect(on_connect, config) do
-    case OnConnect.pop(on_connect) do
+    case Stack.pop(on_connect) do
       :ok   -> {:ok, new(config)}
       other -> other
     end
   end
 
   defp new(config) do
-    {:ok, pid} = Pid.start_link
-    history    = get_history(config)
+    {:ok, pid}      = Pid.start_link
+    history         = Keyword.get(config, :history, nil)
+    on_channel_open = Keyword.get(config, :on_channel_open, nil)
 
-    %Conn{pid: pid, history: history}
-  end
-
-  defp get_history(config) do
-    case Keyword.fetch(config, :history) do
-      {:ok, history} -> history
-      :error         -> build_history
-    end
-  end
-
-  defp build_history do
-    case History.start_link do
-      {:ok, history}   -> history
-      {:error, reason} -> raise "Could not start history: #{inspect reason}"
-    end
+    %Conn{pid:             pid,
+          history:         history,
+          on_channel_open: on_channel_open}
   end
 end

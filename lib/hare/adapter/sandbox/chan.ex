@@ -6,34 +6,30 @@ defmodule Hare.Adapter.Sandbox.Chan do
   defstruct [:pid, :conn]
 
   def open(%Conn{} = conn) do
-    {:ok, pid} = new_pid(conn)
-
-    {:ok, %Chan{pid: pid, conn: conn}}
-  end
-
-  def monitor(%Chan{pid: pid}) do
-    Process.monitor(pid)
-  end
-
-  def link(%Chan{pid: pid}) do
-    Process.link(pid)
-  end
-
-  def unlink(%Chan{pid: pid}) do
-    Process.unlink(pid)
-  end
-
-  def stop(%Chan{pid: pid}, reason \\ :normal) do
-    Pid.stop(pid, reason)
-  end
-
-  def register(%Chan{conn: conn}, event) do
-    Conn.register(conn, event)
-  end
-
-  defp new_pid(conn) do
-    Pid.start_link fn ->
-      Conn.monitor(conn)
+    case Conn.on_channel_open(conn) do
+      :ok   -> {:ok, new(conn)}
+      other -> other
     end
+  end
+
+  def monitor(%Chan{pid: pid}),
+    do: Process.monitor(pid)
+
+  def link(%Chan{pid: pid}),
+    do: Process.link(pid)
+
+  def unlink(%Chan{pid: pid}),
+    do: Process.unlink(pid)
+
+  def close(%Chan{pid: pid}, reason \\ :normal),
+    do: Pid.stop(pid, reason)
+
+  def register(%Chan{conn: conn}, event),
+    do: Conn.register(conn, event)
+
+  defp new(conn) do
+    {:ok, pid} = Pid.start_link(fn -> Conn.monitor(conn) end)
+
+    %Chan{pid: pid, conn: conn}
   end
 end

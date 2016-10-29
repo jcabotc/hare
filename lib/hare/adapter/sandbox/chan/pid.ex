@@ -20,7 +20,7 @@ defmodule Hare.Adapter.Sandbox.Chan.Pid do
   end
 
   def handle_info({:DOWN, ref, _, _, reason}, %{ref: ref} = state) do
-    {:stop, reason, state}
+    {:stop, {:connection_down, reason}, state}
   end
   def handle_info(_anything, state) do
     {:noreply, state}
