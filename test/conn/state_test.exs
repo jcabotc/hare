@@ -28,6 +28,7 @@ defmodule Hare.Conn.StateTest do
     assert {:ok, state} = State.connect(state)
     assert %{status: :connected, conn: conn_1, ref: ref_1} = state
 
+    Adapter.Backdoor.unlink(state.conn)
     Adapter.Backdoor.crash(state.conn, :simulated_crash)
     assert_receive {:DOWN, ^ref_1, :process, _pid, :simulated_crash}
 
