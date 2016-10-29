@@ -11,10 +11,10 @@ defmodule Hare.Mixfile do
   end
 
   def application do
-    [applications: [:logger]]
+    [applications: [:logger, :connection]]
   end
 
   defp deps do
-    []
+    [{:connection, "~> 1.0"}]
   end
 end
