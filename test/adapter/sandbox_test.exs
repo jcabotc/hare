@@ -42,7 +42,6 @@ defmodule Hare.Adapter.SandboxTest do
     {:ok, conn} = Adapter.open_connection([])
     ref         = Adapter.monitor_connection(conn)
 
-    Adapter.Backdoor.unlink(conn)
     Adapter.Backdoor.crash(conn, :simulated)
     assert_receive {:DOWN, ^ref, _, _, :simulated}
   end

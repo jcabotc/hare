@@ -18,6 +18,7 @@ defmodule Hare.Adapter.Sandbox.Backdoor do
   end
 
   def crash(%Conn{} = conn, reason \\ :simulated_crash) do
+    unlink(conn)
     Conn.stop(conn, reason)
   end
 end
