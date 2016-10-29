@@ -103,7 +103,7 @@ defmodule Hare.Adapter.SandboxTest do
 
     Adapter.Backdoor.unlink(conn)
     Adapter.Backdoor.crash(conn, :simulated_crash)
-    assert_receive {:DOWN, ^ref, _, _, {:connection_down, :simulated_crash}}
-    refute_receive {:EXIT, _from, {:connection_down, :simulated_crash}}, 10
+    assert_receive {:DOWN, ^ref, _, _, :simulated_crash}
+    refute_receive {:EXIT, _from, :simulated_crash}, 10
   end
 end
