@@ -6,11 +6,11 @@ defmodule Hare.Conn.State.Bridge do
              :given, :ref, :status]
 
   def new(config) do
-    adapter = Keyword.fetch!(config, :adapter)
-    backoff = Keyword.fetch!(config, :backoff)
-    config  = Keyword.fetch!(config, :config)
+    adapter      = Keyword.fetch!(config, :adapter)
+    backoff      = Keyword.fetch!(config, :backoff)
+    given_config = Keyword.fetch!(config, :config)
 
-    %Bridge{adapter: adapter, backoff: backoff, config: config}
+    %Bridge{adapter: adapter, backoff: backoff, config: given_config}
     |> set_not_connected
   end
 

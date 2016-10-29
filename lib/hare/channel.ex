@@ -3,7 +3,6 @@ defmodule Hare.Channel do
 
   defstruct [:given, :adapter]
 
-  def new(given, adapter) do
-    %Channel{given: given, adapter: adapter}
-  end
+  def new(given, adapter),
+    do: %Channel{given: given, adapter: adapter}
 end
