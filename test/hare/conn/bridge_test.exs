@@ -21,7 +21,7 @@ defmodule Hare.Conn.BridgeTest do
     assert {:retry, 1000, :three, bridge} = Bridge.connect(bridge)
     assert %{status: :reconnecting} = bridge
 
-    assert {:error, :not_connected} = Bridge.open_channel(bridge)
+    assert :not_connected = Bridge.open_channel(bridge)
 
     assert {:ok, bridge} = Bridge.connect(bridge)
     assert %{status: :connected, given: given_1, ref: ref_1} = bridge

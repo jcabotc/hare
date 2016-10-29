@@ -23,7 +23,7 @@ defmodule Hare.Conn.Bridge do
   def open_channel(%Bridge{adapter: adapter, given: given, status: :connected}),
     do: adapter.open_channel(given)
   def open_channel(%Bridge{}),
-    do: {:error, :not_connected}
+    do: :not_connected
 
   def disconnect(%Bridge{adapter: adapter, given: given, status: :connected} = bridge) do
     adapter.close_connection(given)
