@@ -14,4 +14,7 @@ defmodule Hare.Channel do
 
   def unlink(%Channel{given: given, adapter: adapter}),
     do: adapter.unlink_channel(given)
+
+  def close(%Channel{given: given, adapter: adapter}),
+    do: adapter.close_channel(given)
 end
