@@ -6,8 +6,7 @@ defmodule Hare.Adapter.Sandbox.Conn.Stack do
     do: Agent.get_and_update(stack, &do_pop/1)
 
   defp do_pop([]),
-    do: {:ok, []}
-
+    do: {:empty, []}
   defp do_pop([result | rest]),
     do: {result, rest}
 end

@@ -56,4 +56,28 @@ defmodule Hare.Adapter do
 
   @callback unbind(chan, queue, exchange, opts) ::
               :ok
+
+  # Publish
+  #
+  @type payload     :: binary
+  @type routing_key :: binary
+
+  @callback publish(chan, exchange, payload, routing_key, opts) ::
+              :ok
+
+  # Get
+  #
+  @type meta :: map
+
+  @callback get(chan, queue, opts) ::
+              {:empty, info :: map} | {:ok, payload, meta}
+
+  @callback ack(chan, meta, opts) ::
+              :ok
+
+  @callback nack(chan, meta, opts) ::
+              :ok
+
+  @callback reject(chan, meta, opts) ::
+              :ok
 end

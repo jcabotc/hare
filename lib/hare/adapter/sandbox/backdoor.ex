@@ -8,6 +8,8 @@ defmodule Hare.Adapter.Sandbox.Backdoor do
     do: Conn.Stack.start_link(results, opts)
   def on_channel_open(results, opts \\ []),
     do: Conn.Stack.start_link(results, opts)
+  def messages(results, opts \\ []),
+    do: Conn.Stack.start_link(results, opts)
 
   def events(history),
     do: Conn.History.events(history)

@@ -27,6 +27,9 @@ defmodule Hare.Adapter.Sandbox.Chan do
   def register(%Chan{conn: conn}, event),
     do: Conn.register(conn, event)
 
+  def get_message(%Chan{conn: conn}),
+    do: Conn.get_message(conn)
+
   defp new(conn) do
     {:ok, pid} = Pid.start_link(fn -> Conn.monitor(conn) end)
 

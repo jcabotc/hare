@@ -2,7 +2,7 @@ defmodule Hare.Adapter.Sandbox.Conn do
   alias __MODULE__
   alias __MODULE__.{Pid, History, Stack}
 
-  defstruct [:pid, :history, :on_channel_open]
+  defstruct [:pid, :history, :on_channel_open, :messages]
 
   def open(config) do
     case Keyword.fetch(config, :on_connect) do
@@ -29,12 +29,14 @@ defmodule Hare.Adapter.Sandbox.Conn do
   def on_channel_open(%Conn{on_channel_open: nil}),
     do: :ok
   def on_channel_open(%Conn{on_channel_open: on_channel_open}),
-    do: Stack.pop(on_channel_open)
+    do: with(:empty <- Stack.pop(on_channel_open), do: :ok)
+
+  def get_message(%Conn{messages: messages}),
+    do: Stack.pop(messages)
 
   defp handle_on_connect(on_connect, config) do
-    case Stack.pop(on_connect) do
-      :ok   -> {:ok, new(config)}
-      other -> other
+    with value when value in [:ok, :empty] <- Stack.pop(on_connect) do
+      {:ok, new(config)}
     end
   end
 
@@ -42,9 +44,11 @@ defmodule Hare.Adapter.Sandbox.Conn do
     {:ok, pid}      = Pid.start_link
     history         = Keyword.get(config, :history, nil)
     on_channel_open = Keyword.get(config, :on_channel_open, nil)
+    messages        = Keyword.get(config, :messages, [])
 
     %Conn{pid:             pid,
           history:         history,
-          on_channel_open: on_channel_open}
+          on_channel_open: on_channel_open,
+          messages:        messages}
   end
 end

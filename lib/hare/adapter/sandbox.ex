@@ -71,6 +71,33 @@ defmodule Hare.Adapter.Sandbox do
     register(chan, {:unbind, [chan, queue, exchange, opts], :ok})
   end
 
+  # Publish
+  #
+  def publish(chan, exchange, payload, routing_key, opts) do
+    args = [chan, exchange, payload, routing_key, opts]
+    register(chan, {:publish, args, :ok})
+  end
+
+  # Get
+  #
+  def get(chan, queue, opts) do
+    result = case Chan.get_message(chan) do
+      :empty  -> {:empty, %{}}
+      payload -> {:ok, payload, :meta}
+    end
+
+    register(chan, {:get, [chan, queue, opts], result})
+  end
+
+  def ack(chan, meta, opts),
+    do: register(chan, {:ack, [chan, meta, opts], :ok})
+
+  def nack(chan, meta, opts),
+    do: register(chan, {:nack, [chan, meta, opts], :ok})
+
+  def reject(chan, meta, opts),
+    do: register(chan, {:reject, [chan, meta, opts], :ok})
+
   # Helpers
   #
   defp register(%Conn{} = conn, event),
