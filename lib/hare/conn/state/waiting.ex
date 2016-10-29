@@ -1,4 +1,4 @@
-defmodule Hare.Conn.Waiting do
+defmodule Hare.Conn.State.Waiting do
   alias __MODULE__
 
   defstruct [:clients]

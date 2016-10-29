@@ -1,8 +1,7 @@
 defmodule Hare.Conn do
   use Connection
 
-  alias __MODULE__.{Bridge, Waiting}
-  alias Hare.Channel
+  alias __MODULE__.State
 
   def start_link(config, opts \\ []),
     do: Connection.start_link(__MODULE__, config, opts)
@@ -14,12 +13,13 @@ defmodule Hare.Conn do
     do: Connection.call(conn, {:close, reason})
 
   def init(config) do
-    state = %{bridge: Bridge.new(config), waiting: Waiting.new}
+    state = State.new(config, &Connection.reply/2)
+
     {:connect, :init, state}
   end
 
   def connect(_info, state) do
-    case try_connect(state) do
+    case State.connect(state) do
       {:ok, new_state}              -> {:ok, new_state}
       {:retry, interval, new_state} -> {:backoff, interval, new_state}
     end
@@ -29,7 +29,7 @@ defmodule Hare.Conn do
     do: {:stop, reason, state}
 
   def handle_call(:open_channel, from, state) do
-    case try_open_channel(state, from) do
+    case State.open_channel(state, from) do
       {:wait, new_state} -> {:noreply, new_state}
       result             -> {:reply, result, state}
     end
@@ -43,37 +43,6 @@ defmodule Hare.Conn do
   def handle_info(_anything, state),
     do: {:noreply, state}
 
-  def terminate(_reason, %{bridge: bridge}),
-    do: Bridge.disconnect(bridge)
-
-  defp try_connect(%{bridge: bridge} = state),
-    do: Bridge.connect(bridge) |> handle_connection_try(state)
-
-  defp handle_connection_try({:ok, new_bridge}, %{waiting: waiting} = state) do
-    {froms, new_waiting} = Waiting.pop_all(waiting)
-    reply_waiting(froms, new_bridge)
-
-    {:ok, %{state | bridge: new_bridge, waiting: new_waiting}}
-  end
-  defp handle_connection_try({:retry, interval, _reason, new_bridge}, state) do
-    {:retry, interval, %{state | bridge: new_bridge}}
-  end
-
-  defp reply_waiting(froms, bridge) do
-    Enum.each froms, fn from ->
-      result = Bridge.open_channel(bridge)
-
-      Connection.reply(from, result)
-    end
-  end
-
-  defp try_open_channel(%{bridge: bridge} = state, from),
-    do: Bridge.open_channel(bridge) |> handle_open_channel_try(state, from)
-
-  defp handle_open_channel_try({:ok, given_chan}, %{bridge: bridge}, _from),
-    do: {:ok, Channel.new(given_chan, bridge.adapter)}
-  defp handle_open_channel_try(:not_connected, %{waiting: waiting} = state, from),
-    do: {:wait, %{state | waiting: Waiting.push(waiting, from)}}
-  defp handle_open_channel_try({:error, _reason} = error, _state, _from),
-    do: error
+  def terminate(_reason, state),
+    do: State.disconnect(state)
 end

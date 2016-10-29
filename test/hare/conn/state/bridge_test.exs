@@ -1,7 +1,7 @@
-defmodule Hare.Conn.BridgeTest do
+defmodule Hare.Conn.State.BridgeTest do
   use ExUnit.Case, async: true
 
-  alias Hare.Conn.Bridge
+  alias Hare.Conn.State.Bridge
   alias Hare.Adapter.Sandbox, as: Adapter
 
   test "connection lifecycle" do

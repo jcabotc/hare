@@ -1,4 +1,4 @@
-defmodule Hare.Conn.Bridge do
+defmodule Hare.Conn.State.Bridge do
   alias __MODULE__
 
   defstruct [:adapter, :config,
