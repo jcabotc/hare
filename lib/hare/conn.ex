@@ -38,10 +38,15 @@ defmodule Hare.Conn do
     {:disconnect, reason, :ok, state}
   end
 
-  def handle_info({:DOWN, ref, _, _, _reason}, %{bridge: %{ref: ref}} = state),
-    do: {:connect, :reconnect, state}
-  def handle_info(_anything, state),
-    do: {:noreply, state}
+  def handle_info({:DOWN, ref, _, _, _reason}, state) do
+    case State.down?(state, ref) do
+      true  -> {:connect, :reconnect, state}
+      false -> {:noreply, state}
+    end
+  end
+  def handle_info(_anything, state) do
+    {:noreply, state}
+  end
 
   def terminate(_reason, state),
     do: State.disconnect(state)

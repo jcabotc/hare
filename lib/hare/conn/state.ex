@@ -15,6 +15,9 @@ defmodule Hare.Conn.State do
   def connect(%State{bridge: bridge} = state),
     do: Bridge.connect(bridge) |> handle_connect(state)
 
+  def down?(%State{bridge: bridge}, ref),
+    do: bridge.ref == ref
+
   def open_channel(%State{bridge: bridge} = state, client),
     do: Bridge.open_channel(bridge) |> handle_open_channel(state, client)
 
