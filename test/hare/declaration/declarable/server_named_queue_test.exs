@@ -1,4 +1,4 @@
-defmodule Hare.Declaration.ServerNamedQueueTest do
+defmodule Hare.Declaration.Declarable.ServerNamedQueueTest do
   use ExUnit.Case, async: true
 
   alias Hare.Declaration.Declarable.ServerNamedQueue

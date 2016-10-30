@@ -1,4 +1,4 @@
-defmodule Hare.Declaration.ExchangeTest do
+defmodule Hare.Declaration.Declarable.ExchangeTest do
   use ExUnit.Case, async: true
 
   alias Hare.Declaration.Declarable.Exchange

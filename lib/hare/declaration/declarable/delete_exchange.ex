@@ -1,22 +1,13 @@
 defmodule Hare.Declaration.Declarable.DeleteExchange do
   @behaviour Hare.Declaration.Declarable
 
-  @default_opts []
-
-  import Hare.Declaration.Declarable.Helper.Validations,
-    only: [validate: 3, validate_keyword: 3]
+  alias Hare.Declaration.Declarable.Shared.NameAndOpts
 
   def validate(config) do
-    with :ok <- validate(config, :name, :binary),
-         :ok <- validate_keyword(config, :opts, required: false) do
-      :ok
-    end
+    NameAndOpts.validate(config)
   end
 
-  def run(%{given: given, adapter: adapter}, config, _tags) do
-    name = Keyword.fetch!(config, :name)
-    opts = Keyword.get(config, :opts, @default_opts)
-
-    adapter.delete_exchange(given, name, opts)
+  def run(chan, config, _tags) do
+    NameAndOpts.run(chan, :delete_exchange, config)
   end
 end

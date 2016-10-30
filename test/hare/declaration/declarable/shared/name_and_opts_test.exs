@@ -1,22 +1,22 @@
-defmodule Hare.Declaration.QueueTest do
+defmodule Hare.Declaration.Declarable.Shared.NameAndOptsTest do
   use ExUnit.Case, async: true
 
-  alias Hare.Declaration.Declarable.Queue
+  alias Hare.Declaration.Declarable.Shared.NameAndOpts
   alias Hare.Adapter.Sandbox, as: Adapter
 
   test "validate/1" do
     config = [name: "foo",
               opts: [durable: true]]
 
-    assert :ok == Queue.validate(config)
+    assert :ok == NameAndOpts.validate(config)
   end
 
   test "validate/1 on error" do
     error = {:error, {:not_present, :name, []}}
-    assert error == Queue.validate([])
+    assert error == NameAndOpts.validate([])
 
     error = {:error, {:not_binary, :name, :foo}}
-    assert error == Queue.validate([name: :foo])
+    assert error == NameAndOpts.validate([name: :foo])
   end
 
   test "run/2" do
@@ -29,13 +29,13 @@ defmodule Hare.Declaration.QueueTest do
 
     config = [name: "foo",
               opts: [durable: true]]
-    assert {:ok, %{}} == Queue.run(chan, config, %{})
+    assert {:ok, %{}} == NameAndOpts.run(chan, :declare_queue, config)
 
     args = [given_chan, "foo", [durable: true]]
     assert {:declare_queue, args, {:ok, %{}}} == Adapter.Backdoor.last_event(history)
 
     minimal = [name: "foo"]
-    assert {:ok, %{}} == Queue.run(chan, minimal, %{})
+    assert {:ok, %{}} == NameAndOpts.run(chan, :declare_queue, minimal)
 
     args = [given_chan, "foo", []]
     assert {:declare_queue, args, {:ok, %{}}} == Adapter.Backdoor.last_event(history)
