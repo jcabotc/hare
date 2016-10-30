@@ -54,6 +54,10 @@ defmodule Hare.Adapter.Sandbox do
     register(chan, {:declare_exchange, [chan, exchange, type, opts], :ok})
   end
 
+  def delete_exchange(chan, exchange, opts) do
+    register(chan, {:delete_exchange, [chan, exchange, opts], :ok})
+  end
+
   def declare_queue(chan, queue, opts) do
     register(chan, {:declare_queue, [chan, queue, opts], {:ok, %{}}})
   end
@@ -61,6 +65,10 @@ defmodule Hare.Adapter.Sandbox do
   def declare_server_named_queue(chan, opts) do
     name = "generated_name_#{:rand.uniform(10000)}"
     register(chan, {:declare_server_named_queue, [chan, opts], {:ok, name, %{}}})
+  end
+
+  def delete_queue(chan, queue, opts) do
+    register(chan, {:delete_queue, [chan, queue, opts], :ok})
   end
 
   def bind(chan, queue, exchange, opts) do

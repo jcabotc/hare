@@ -115,7 +115,9 @@ defmodule Hare.Adapter.SandboxTest do
     {:ok, chan} = Adapter.open_channel(conn)
 
     assert :ok        == Adapter.declare_exchange(chan, "foo", :direct, [])
+    assert :ok        == Adapter.delete_exchange(chan, "foo", [])
     assert {:ok, %{}} == Adapter.declare_queue(chan, "bar", [])
+    assert :ok        == Adapter.delete_queue(chan, "bar", [])
     assert :ok        == Adapter.bind(chan, "foo", "bar", [])
     assert :ok        == Adapter.unbind(chan, "foo", "bar", [])
     assert :ok        == Adapter.publish(chan, "foo", "payload", "key", [])

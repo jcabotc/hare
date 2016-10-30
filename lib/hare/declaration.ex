@@ -36,7 +36,7 @@ defmodule Hare.Declaration do
     end
   end
 
-  defp run_each(chan, [], result) do
+  defp run_each(_chan, [], result) do
     {:ok, result}
   end
   defp run_each(chan, [step | rest], result) do

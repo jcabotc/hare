@@ -46,11 +46,17 @@ defmodule Hare.Adapter do
   @callback declare_exchange(chan, exchange, type :: atom, opts) ::
               :ok | {:error, reason :: term}
 
+  @callback delete_exchange(chan, exchange, opts) ::
+              :ok
+
   @callback declare_queue(chan, queue, opts) ::
               {:ok, info :: term} | {:error, term}
 
   @callback declare_server_named_queue(chan, opts) ::
               {:ok, queue, info :: term} | {:error, term}
+
+  @callback delete_queue(chan, queue, opts) ::
+              :ok
 
   @callback bind(chan, queue, exchange, opts) ::
               :ok
