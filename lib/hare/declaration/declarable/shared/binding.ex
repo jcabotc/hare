@@ -19,12 +19,12 @@ defmodule Hare.Declaration.Declarable.Shared.Binding do
     end
   end
 
-  def run(config, tags, binding) do
+  def run(%{given: given, adapter: adapter}, action, config, tags) do
     with {:ok, queue} <- get_queue(config, tags) do
       exchange = Keyword.get(config, :exchange)
       opts     = Keyword.get(config, :opts, @default_opts)
 
-      binding.(queue, exchange, opts)
+      apply(adapter, action, [given, queue, exchange, opts])
     end
   end
 

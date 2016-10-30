@@ -8,10 +8,6 @@ defmodule Hare.Declaration.Declarable.Bind do
   end
 
   def run(chan, config, tags) do
-    Shared.Binding.run(config, tags, &action(chan, &1, &2, &3))
-  end
-
-  defp action(%{given: given, adapter: adapter}, queue, exchange, opts) do
-    adapter.bind(given, queue, exchange, opts)
+    Shared.Binding.run(chan, :bind, config, tags)
   end
 end
