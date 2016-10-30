@@ -1,13 +1,13 @@
 defmodule Hare.Declaration.Declarable.DeleteQueue do
   @behaviour Hare.Declaration.Declarable
 
-  alias Hare.Declaration.Declarable.Shared.NameAndOpts
+  alias Hare.Declaration.Declarable.Shared
 
   def validate(config) do
-    NameAndOpts.validate(config)
+    Shared.NameAndOpts.validate(config)
   end
 
   def run(chan, config, _tags) do
-    NameAndOpts.run(chan, :delete_queue, config)
+    Shared.NameAndOpts.run(chan, :delete_queue, config)
   end
 end
