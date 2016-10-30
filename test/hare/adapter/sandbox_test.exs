@@ -34,6 +34,9 @@ defmodule Hare.Adapter.SandboxTest do
                        {:open_connection,    [config], {:ok, conn_2}}]
 
     assert expected_events == Adapter.Backdoor.events(history)
+
+    last_event = {:open_connection, [config], {:ok, conn_2}}
+    assert last_event == Adapter.Backdoor.last_event(history)
   end
 
   test "crash connection" do

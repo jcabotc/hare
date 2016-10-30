@@ -15,7 +15,7 @@ defmodule Hare.Declaration.Declarable.Exchange do
     end
   end
 
-  def run(%{given: given, adapter: adapter}, config) do
+  def run(%{given: given, adapter: adapter}, config, _tags) do
     name = Keyword.fetch!(config, :name)
     type = Keyword.get(config, :type, @default_type)
     opts = Keyword.get(config, :opts, @default_opts)
