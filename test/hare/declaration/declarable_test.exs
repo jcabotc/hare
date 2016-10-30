@@ -9,7 +9,7 @@ defmodule Hare.Declaration.DeclarableTest do
     def validate(config),
       do: Keyword.fetch!(config, :validate)
 
-    def run(%Hare.Chan{}, config),
+    def run(%Hare.Chan{}, config, _tags),
       do: Keyword.fetch!(config, :run)
   end
 
@@ -27,6 +27,6 @@ defmodule Hare.Declaration.DeclarableTest do
     result = {:ok, :info, %{}}
     config = [run: result]
 
-    assert result == Declarable.run(chan, TestDeclarable, config, @known)
+    assert result == Declarable.run(chan, TestDeclarable, config, %{})
   end
 end

@@ -17,4 +17,11 @@ defmodule Hare.Adapter.Sandbox.Conn.History do
   def events(history) do
     Agent.get(history, &(&1)) |> Enum.reverse
   end
+
+  def last_event(nil) do
+    :no_history_given
+  end
+  def last_event(history) do
+    Agent.get(history, &hd/1)
+  end
 end
