@@ -4,7 +4,7 @@ defmodule Hare.Declaration.Declarable.Exchange do
   @default_type :direct
   @default_opts []
 
-  import Hare.Declaration.Declarable.Helper,
+  import Hare.Declaration.Declarable.Helper.Validations,
     only: [validate: 3, validate: 4, validate_keyword: 3]
 
   def validate(config) do

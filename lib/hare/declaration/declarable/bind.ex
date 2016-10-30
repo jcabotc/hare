@@ -3,7 +3,7 @@ defmodule Hare.Declaration.Declarable.Bind do
 
   @default_opts []
 
-  import Hare.Declaration.Declarable.Helper,
+  import Hare.Declaration.Declarable.Helper.Validations,
     only: [validate: 3, validate_keyword: 3]
 
   def validate(config) do
