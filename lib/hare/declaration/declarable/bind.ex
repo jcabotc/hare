@@ -3,8 +3,8 @@ defmodule Hare.Declaration.Declarable.Bind do
 
   @default_opts []
 
-  import Hare.Declaration.Declarable.Helper.Validations,
-    only: [validate: 3, validate_keyword: 3]
+  alias Hare.Declaration.Declarable.Helper
+  import Helper.Validations, only: [validate: 3, validate_keyword: 3]
 
   def validate(config) do
     with :ok <- validate_queue(config),
@@ -32,14 +32,7 @@ defmodule Hare.Declaration.Declarable.Bind do
 
   defp get_queue(config, tags) do
     with :error <- Keyword.fetch(config, :queue) do
-      get_queue_from_tag(config, tags)
-    end
-  end
-  defp get_queue_from_tag(config, tags) do
-    tag = Keyword.fetch!(config, :queue_from_tag)
-
-    with :error <- Map.fetch(tags, tag) do
-      {:error, {:tag_missing, tag, tags}}
+      Helper.Tag.get_through(config, tags, :queue_from_tag)
     end
   end
 end
