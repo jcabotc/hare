@@ -1,6 +1,9 @@
 defmodule Hare.Chan do
   alias __MODULE__
 
+  @type t :: %__MODULE__{given:   Hare.Adapter.chan,
+                         adapter: Hare.Adapter.t}
+
   defstruct [:given, :adapter]
 
   def new(given, adapter),

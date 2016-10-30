@@ -3,6 +3,7 @@ defmodule Hare.Adapter do
   Specification of the AMQP adapter
   """
 
+  @type t    :: module
   @type opts :: Keyword.t
 
   # Connection
