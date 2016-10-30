@@ -60,7 +60,7 @@ defmodule Hare.Adapter.Sandbox do
 
   def declare_server_named_queue(chan, opts) do
     name = "generated_name_#{:rand.uniform(10000)}"
-    register(chan, {:declare_queue, [chan, opts], {:ok, name, %{}}})
+    register(chan, {:declare_server_named_queue, [chan, opts], {:ok, name, %{}}})
   end
 
   def bind(chan, queue, exchange, opts) do

@@ -34,13 +34,13 @@ defmodule Hare.Declaration.ExchangeTest do
     config = [name: "foo",
               type: :fanout,
               opts: [durable: true]]
-    Exchange.run(chan, config, %{})
+    assert :ok == Exchange.run(chan, config, %{})
 
     args = [given_chan, "foo", :fanout, [durable: true]]
     assert {:declare_exchange, args, :ok} == Adapter.Backdoor.last_event(history)
 
     minimal = [name: "foo"]
-    Exchange.run(chan, minimal, %{})
+    assert :ok == Exchange.run(chan, minimal, %{})
 
     args = [given_chan, "foo", :direct, []]
     assert {:declare_exchange, args, :ok} == Adapter.Backdoor.last_event(history)

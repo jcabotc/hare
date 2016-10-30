@@ -29,13 +29,13 @@ defmodule Hare.Declaration.QueueTest do
 
     config = [name: "foo",
               opts: [durable: true]]
-    Queue.run(chan, config, %{})
+    assert {:ok, %{}} == Queue.run(chan, config, %{})
 
     args = [given_chan, "foo", [durable: true]]
     assert {:declare_queue, args, {:ok, %{}}} == Adapter.Backdoor.last_event(history)
 
     minimal = [name: "foo"]
-    Queue.run(chan, minimal, %{})
+    assert {:ok, %{}} == Queue.run(chan, minimal, %{})
 
     args = [given_chan, "foo", []]
     assert {:declare_queue, args, {:ok, %{}}} == Adapter.Backdoor.last_event(history)
