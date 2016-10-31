@@ -28,7 +28,6 @@ defmodule Hare.Queue do
   def consume(queue),                       do: consume(queue, self, [])
   def consume(queue, pid) when is_pid(pid), do: consume(queue, pid, [])
   def consume(queue, opts),                 do: consume(queue, self, opts)
-
   def consume(%Queue{consuming: true}, _pid, _opts) do
     {:error, :already_consuming}
   end
@@ -44,7 +43,6 @@ defmodule Hare.Queue do
   end
 
   def cancel(queue, opts \\ [])
-
   def cancel(%Queue{consuming: false} = queue, _opts) do
     {:ok, queue}
   end
