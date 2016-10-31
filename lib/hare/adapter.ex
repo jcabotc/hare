@@ -74,10 +74,17 @@ defmodule Hare.Adapter do
 
   # Get
   #
-  @type meta :: map
+  @type meta         :: map
+  @type consumer_tag :: binary
 
   @callback get(chan, queue, opts) ::
               {:empty, info :: map} | {:ok, payload, meta}
+
+  @callback consume(chan, queue, pid, opts) ::
+              {:ok, consumer_tag}
+
+  @callback cancel(chan, consumer_tag, opts) ::
+              :ok
 
   @callback ack(chan, meta, opts) ::
               :ok

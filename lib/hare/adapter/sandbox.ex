@@ -97,6 +97,15 @@ defmodule Hare.Adapter.Sandbox do
     register(chan, {:get, [chan, queue, opts], result})
   end
 
+  def consume(chan, queue, pid, opts) do
+    tag = "consumer_tag_#{:rand.uniform(10000)}"
+    register(chan, {:consume, [chan, queue, pid, opts], {:ok, tag}})
+  end
+
+  def cancel(chan, consumer_tag, opts) do
+    register(chan, {:cancel, [chan, consumer_tag, opts], :ok})
+  end
+
   def ack(chan, meta, opts),
     do: register(chan, {:ack, [chan, meta, opts], :ok})
 
