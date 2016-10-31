@@ -20,5 +20,10 @@ defmodule Hare.ExchangeTest do
 
     args = [given_chan, "foo", "payload", "key.*", [inmediate: true]]
     assert {:publish, args, :ok} == Adapter.Backdoor.last_event(history)
+
+    assert :ok == Exchange.publish(exchange, "payload")
+
+    args = [given_chan, "foo", "payload", "", []]
+    assert {:publish, args, :ok} == Adapter.Backdoor.last_event(history)
   end
 end
