@@ -1,7 +1,7 @@
 defmodule Hare.IntegrationTest.Declaration.GeneratedNameBindingTest do
   use ExUnit.Case, async: true
 
-  alias Hare.Declaration
+  alias Hare.Core.Declaration
   alias Hare.Adapter.Sandbox, as: Adapter
 
   test "run/2" do
@@ -10,7 +10,7 @@ defmodule Hare.IntegrationTest.Declaration.GeneratedNameBindingTest do
 
     {:ok, given_conn} = Adapter.open_connection(config)
     {:ok, given_chan} = Adapter.open_channel(given_conn)
-    chan = Hare.Chan.new(given_chan, Adapter)
+    chan = Hare.Core.Chan.new(given_chan, Adapter)
 
     steps = [
       server_named_queue: [
