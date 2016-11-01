@@ -36,6 +36,32 @@ defmodule Hare.Core.QueueTest do
             :ok} = Adapter.Backdoor.last_event(history)
   end
 
+  test "bind/3 and unbind/3" do
+    {history, chan} = build_channel
+
+    queue = Queue.new(chan, "foo")
+
+    {:ok, ^queue, exchange} = Queue.bind(queue, "bar", routing_key: "key.*")
+    assert {:bind,
+            [_given, "foo", "bar", [routing_key: "key.*"]],
+            :ok} = Adapter.Backdoor.last_event(history)
+
+    {:ok, ^queue, ^exchange} = Queue.bind(queue, exchange)
+    assert {:bind,
+            [_given, "foo", "bar", []],
+            :ok} = Adapter.Backdoor.last_event(history)
+
+    {:ok, ^queue, ^exchange} = Queue.unbind(queue, "bar")
+    assert {:unbind,
+            [_given, "foo", "bar", []],
+            :ok} = Adapter.Backdoor.last_event(history)
+
+    {:ok, ^queue, ^exchange} = Queue.unbind(queue, exchange, no_wait: true)
+    assert {:unbind,
+            [_given, "foo", "bar", [no_wait: true]],
+            :ok} = Adapter.Backdoor.last_event(history)
+  end
+
   test "get/2" do
     messages = ["foo"]
     {history, chan} = build_channel(messages)

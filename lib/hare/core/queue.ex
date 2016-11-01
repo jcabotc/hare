@@ -1,6 +1,6 @@
 defmodule Hare.Core.Queue do
   alias __MODULE__
-  alias Hare.Core.Chan
+  alias Hare.Core.{Chan, Exchange}
 
   defstruct chan:          nil,
             name:          nil,
@@ -17,6 +17,38 @@ defmodule Hare.Core.Queue do
 
     with {:ok, info} <- adapter.declare_queue(given, name, opts) do
       {:ok, info, %Queue{chan: chan, name: name}}
+    end
+  end
+
+  def bind(queue, exchange_or_name, opts \\ [])
+  def bind(%Queue{chan: chan} = queue, exchange_name, opts)
+  when is_binary(exchange_name) do
+    exchange = Exchange.new(chan, exchange_name)
+
+    bind(queue, exchange, opts)
+  end
+  def bind(%Queue{chan: chan, name: name} = queue,
+           %Exchange{name: exchange_name} = exchange, opts) do
+    %{given: given, adapter: adapter} = chan
+
+    with :ok <- adapter.bind(given, name, exchange_name, opts) do
+      {:ok, queue, exchange}
+    end
+  end
+
+  def unbind(queue, exchange_or_name, opts \\ [])
+  def unbind(%Queue{chan: chan} = queue, exchange_name, opts)
+  when is_binary(exchange_name) do
+    exchange = Exchange.new(chan, exchange_name)
+
+    unbind(queue, exchange, opts)
+  end
+  def unbind(%Queue{chan: chan, name: name} = queue,
+             %Exchange{name: exchange_name} = exchange, opts) do
+    %{given: given, adapter: adapter} = chan
+
+    with :ok <- adapter.unbind(given, name, exchange_name, opts) do
+      {:ok, queue, exchange}
     end
   end
 
