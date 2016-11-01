@@ -4,9 +4,11 @@ defmodule Hare.Core.Exchange do
 
   defstruct [:chan, :name]
 
-  def new(%Chan{} = chan, name) when is_binary(name) do
-    %Exchange{chan: chan, name: name}
-  end
+  def default(%Chan{} = chan),
+    do: %Exchange{chan: chan, name: ""}
+
+  def new(%Chan{} = chan, name) when is_binary(name),
+    do: %Exchange{chan: chan, name: name}
 
   def publish(exchange, payload, routing_key \\ "", opts \\ [])
 
