@@ -8,8 +8,16 @@ defmodule Hare.Core.Queue do
             consuming_pid: nil,
             consumer_tag:  nil
 
-  def new(%Chan{} = chan, name) when is_binary(name) do
-    %Queue{chan: chan, name: name}
+  def new(%Chan{} = chan, name) when is_binary(name),
+    do: %Queue{chan: chan, name: name}
+
+  def declare(%Chan{} = chan, name, opts \\ [])
+  when is_binary(name) do
+    %{given: given, adapter: adapter} = chan
+
+    with {:ok, info} <- adapter.declare_queue(given, name, opts) do
+      {:ok, info, %Queue{chan: chan, name: name}}
+    end
   end
 
   def get(%Queue{chan: chan, name: name}, opts \\ []) do
@@ -54,6 +62,12 @@ defmodule Hare.Core.Queue do
 
       {:ok, new_queue}
     end
+  end
+
+  def delete(%Queue{chan: chan, name: name}, opts \\ []) do
+    %{given: given, adapter: adapter} = chan
+
+    adapter.delete_queue(given, name, opts)
   end
 
   defp do_consume(%{given: given, adapter: adapter}, name, pid, opts),

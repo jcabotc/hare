@@ -10,7 +10,8 @@ defmodule Hare.Core.Exchange do
   def new(%Chan{} = chan, name) when is_binary(name),
     do: %Exchange{chan: chan, name: name}
 
-  def declare(%Chan{} = chan, name, type \\ :direct, opts \\ []) do
+  def declare(%Chan{} = chan, name, type \\ :direct, opts \\ [])
+  when is_binary(name) and is_atom(type) do
     %{given: given, adapter: adapter} = chan
 
     with :ok <- adapter.declare_exchange(given, name, type, opts) do
