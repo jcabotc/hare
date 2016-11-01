@@ -36,6 +36,22 @@ defmodule Hare.Core.QueueTest do
             :ok} = Adapter.Backdoor.last_event(history)
   end
 
+  test "declare/1 and declare/2 with server named queue" do
+    {history, chan} = build_channel
+
+    assert {:ok, info, queue} = Queue.declare(chan)
+    assert %{name: name} = queue
+    assert {:declare_server_named_queue,
+            [_given, []],
+            {:ok, ^name, ^info}} = Adapter.Backdoor.last_event(history)
+
+    assert {:ok, info, queue} = Queue.declare(chan, auto_delete: true)
+    assert %{name: name} = queue
+    assert {:declare_server_named_queue,
+            [_given, [auto_delete: true]],
+            {:ok, ^name, ^info}} = Adapter.Backdoor.last_event(history)
+  end
+
   test "bind/3 and unbind/3" do
     {history, chan} = build_channel
 
