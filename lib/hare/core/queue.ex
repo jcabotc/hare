@@ -96,6 +96,12 @@ defmodule Hare.Core.Queue do
     end
   end
 
+  def purge(%Queue{chan: chan, name: name}) do
+    %{given: given, adapter: adapter} = chan
+
+    adapter.purge(given, name)
+  end
+
   def delete(%Queue{chan: chan, name: name}, opts \\ []) do
     %{given: given, adapter: adapter} = chan
 

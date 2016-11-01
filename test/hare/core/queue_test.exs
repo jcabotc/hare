@@ -15,7 +15,7 @@ defmodule Hare.Core.QueueTest do
     {history, Chan.new(given_chan, Adapter)}
   end
 
-  test "declare/3 and delete/1" do
+  test "declare/3, purge/1 and delete/1" do
     {history, chan} = build_channel
 
     assert {:ok, info, queue} = Queue.declare(chan, "foo", [durable: true])
@@ -62,7 +62,7 @@ defmodule Hare.Core.QueueTest do
             :ok} = Adapter.Backdoor.last_event(history)
   end
 
-  test "get/2" do
+  test "get/2, acks and purge/1" do
     messages = ["foo"]
     {history, chan} = build_channel(messages)
 
@@ -75,12 +75,15 @@ defmodule Hare.Core.QueueTest do
     assert :ok = Queue.nack(queue, meta, multiple: true)
     assert :ok = Queue.reject(queue, meta)
 
+    assert {:ok, %{}} = Queue.purge(queue)
+
     events = Adapter.Backdoor.events(history)
 
-    assert [{:reject, [given, ^meta, []],               :ok},
+    assert [{:purge,  [given, "baz"],                   {:ok, %{}}},
+            {:reject, [given, ^meta, []],               :ok},
             {:nack,   [given, ^meta, [multiple: true]], :ok},
             {:ack,    [given, ^meta, []],               :ok},
-            {:get,    [given, "baz", []],               {:empty,%{}}},
+            {:get,    [given, "baz", []],               {:empty, %{}}},
             {:get,    [given, "baz", [no_ack: true]],   {:ok, "foo", ^meta}} | _] = Enum.reverse(events)
   end
 
