@@ -1,7 +1,7 @@
-defmodule Hare.Action.Shared.Binding do
+defmodule Hare.Context.Action.Shared.Binding do
   @default_opts []
 
-  alias Hare.Action.Helper
+  alias Hare.Context.Action.Helper
   import Helper.Validations, only: [validate: 3, validate_keyword: 3]
 
   def validate(config) do
@@ -14,13 +14,13 @@ defmodule Hare.Action.Shared.Binding do
 
   defp validate_queue(config) do
     with {:error, {:not_present, _, _}} <- validate(config, :queue, :binary),
-         {:error, {:not_present, _, _}} <- validate(config, :queue_from_tag, :atom) do
-      {:error, {:not_present, [:queue, :queue_from_tag], config}}
+         {:error, {:not_present, _, _}} <- validate(config, :queue_from_export, :atom) do
+      {:error, {:not_present, [:queue, :queue_from_export], config}}
     end
   end
 
-  def run(%{given: given, adapter: adapter}, action, config, tags) do
-    with {:ok, queue} <- get_queue(config, tags) do
+  def run(%{given: given, adapter: adapter}, action, config, exports) do
+    with {:ok, queue} <- get_queue(config, exports) do
       exchange = Keyword.get(config, :exchange)
       opts     = Keyword.get(config, :opts, @default_opts)
 
@@ -28,9 +28,9 @@ defmodule Hare.Action.Shared.Binding do
     end
   end
 
-  defp get_queue(config, tags) do
+  defp get_queue(config, exports) do
     with :error <- Keyword.fetch(config, :queue) do
-      Helper.Tag.get_through(config, tags, :queue_from_tag)
+      Helper.Exports.get_through(config, exports, :queue_from_export)
     end
   end
 end

@@ -1,22 +1,22 @@
-defmodule Hare.Action.ServerNamedQueueTest do
+defmodule Hare.Context.Action.ServerNamedQueueTest do
   use ExUnit.Case, async: true
 
-  alias Hare.Action.ServerNamedQueue
+  alias Hare.Context.Action.ServerNamedQueue
   alias Hare.Adapter.Sandbox, as: Adapter
 
   test "validate/1" do
-    config = [tag:  :foo,
-              opts: [durable: true]]
+    config = [export: :foo,
+              opts:   [durable: true]]
 
     assert :ok == ServerNamedQueue.validate(config)
   end
 
   test "validate/1 on error" do
-    error = {:error, {:not_present, :tag, []}}
+    error = {:error, {:not_present, :export, []}}
     assert error == ServerNamedQueue.validate([])
 
-    error = {:error, {:not_atom, :tag, "foo"}}
-    assert error == ServerNamedQueue.validate([tag: "foo"])
+    error = {:error, {:not_atom, :export, "foo"}}
+    assert error == ServerNamedQueue.validate([export: "foo"])
   end
 
   test "run/2" do
@@ -27,8 +27,8 @@ defmodule Hare.Action.ServerNamedQueueTest do
     {:ok, given_chan} = Adapter.open_channel(given_conn)
     chan = Hare.Core.Chan.new(given_chan, Adapter)
 
-    config = [tag:  :foo,
-              opts: [durable: true]]
+    config = [export: :foo,
+              opts:   [durable: true]]
     assert {:ok, %{}, %{foo: name}} = ServerNamedQueue.run(chan, config, %{})
     assert Regex.match?(~r/generated_name_/, name)
 
@@ -36,7 +36,7 @@ defmodule Hare.Action.ServerNamedQueueTest do
     args = [given_chan, [durable: true]]
     assert {:declare_server_named_queue, args, {:ok, name, %{}}} == last_event
 
-    minimal = [tag: :foo]
+    minimal = [export: :foo]
     assert {:ok, %{}, %{foo: name}} = ServerNamedQueue.run(chan, minimal, %{})
     assert Regex.match?(~r/generated_name_/, name)
 

@@ -1,7 +1,7 @@
-defmodule Hare.IntegrationTest.Declaration.GeneratedNameBindingTest do
+defmodule Hare.IntegrationTest.Context.GeneratedNameBindingTest do
   use ExUnit.Case, async: true
 
-  alias Hare.Core.Declaration
+  alias Hare.Context
   alias Hare.Adapter.Sandbox, as: Adapter
 
   test "run/2" do
@@ -14,23 +14,23 @@ defmodule Hare.IntegrationTest.Declaration.GeneratedNameBindingTest do
 
     steps = [
       server_named_queue: [
-        tag:  :temporary_queue,
-        opts: [exclusive: true, auto_delete: true]],
+        export: :temporary_queue,
+        opts:   [exclusive: true, auto_delete: true]],
       exchange: [
         name: "events",
         type: :topic,
         opts: [durable: true]],
       bind: [
-        queue_from_tag: :temporary_queue,
+        queue_from_export: :temporary_queue,
         exchange:       "events",
         opts:           [routing_key: "log.*"]]]
 
-    assert {:ok, result} = Declaration.run(chan, steps)
+    assert {:ok, result} = Context.run(chan, steps)
 
     assert [
       server_named_queue: %{
         status: :success,
-        config: [tag: :temporary_queue, opts: [exclusive: true, auto_delete: true]],
+        config: [export: :temporary_queue, opts: [exclusive: true, auto_delete: true]],
         info:   %{}},
       exchange: %{
         status: :success,
@@ -38,10 +38,10 @@ defmodule Hare.IntegrationTest.Declaration.GeneratedNameBindingTest do
         info:   nil},
       bind: %{
         status: :success,
-        config: [queue_from_tag: :temporary_queue, exchange: "events", opts: [routing_key: "log.*"]],
-        info:   nil}] = Declaration.Result.steps(result)
+        config: [queue_from_export: :temporary_queue, exchange: "events", opts: [routing_key: "log.*"]],
+        info:   nil}] = Context.Result.steps(result)
 
-    assert %{temporary_queue: queue} = result.tags
+    assert %{temporary_queue: queue} = result.exports
 
     expected_events = [
       {:open_connection,            [config],                                              {:ok, given_conn}},

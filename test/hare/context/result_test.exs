@@ -6,7 +6,7 @@ defmodule Hare.Context.ResultTest do
   test "registering events" do
     result = Result.new
              |> Result.success(:foo, [foo: "config"], :foo_info, %{})
-             |> Result.success(:bar, [bar: "config"], :bar_info, %{the: "tags"})
+             |> Result.success(:bar, [bar: "config"], :bar_info, %{the: "exports"})
              |> Result.failure(:baz, [baz: "config"], :baz_reason)
              |> Result.not_done(:qux, [qux: "config"])
 
@@ -22,7 +22,7 @@ defmodule Hare.Context.ResultTest do
                       qux: %{status: :not_done,
                              config: [qux: "config"]}]
 
-    assert expected_steps == Result.steps(result)
-    assert %{the: "tags"} == result.tags
+    assert expected_steps    == Result.steps(result)
+    assert %{the: "exports"} == result.exports
   end
 end

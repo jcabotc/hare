@@ -1,8 +1,8 @@
 defmodule Hare.Context.Result do
   alias __MODULE__
 
-  defstruct steps: [],
-            tags:  %{}
+  defstruct steps:   [],
+            exports: %{}
 
   def new,
     do: %Result{}
@@ -10,8 +10,8 @@ defmodule Hare.Context.Result do
   def steps(%Result{steps: steps}),
     do: Enum.reverse(steps)
 
-  def success(%Result{} = result, name, config, info, new_tags),
-    do: ok_step(name, config, info) |> add(result, new_tags)
+  def success(%Result{} = result, name, config, info, new_exports),
+    do: ok_step(name, config, info) |> add(result, new_exports)
 
   def failure(%Result{} = result, name, config, reason),
     do: error_step(name, config, reason) |> add(result)
@@ -31,7 +31,7 @@ defmodule Hare.Context.Result do
   defp add(step, %{steps: steps} = result) do
     %{result | steps: [step | steps]}
   end
-  defp add(step, %{steps: steps, tags: tags} = result, new_tags) do
-    %{result | steps: [step | steps], tags: new_tags}
+  defp add(step, %{steps: steps, exports: exports} = result, new_exports) do
+    %{result | steps: [step | steps], exports: new_exports}
   end
 end

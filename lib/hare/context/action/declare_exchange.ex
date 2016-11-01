@@ -1,10 +1,10 @@
-defmodule Hare.Action.Exchange do
-  @behaviour Hare.Action
+defmodule Hare.Context.Action.DeclareExchange do
+  @behaviour Hare.Context.Action
 
   @default_type :direct
   @default_opts []
 
-  import Hare.Action.Helper.Validations,
+  import Hare.Context.Action.Helper.Validations,
     only: [validate: 3, validate: 4, validate_keyword: 3]
 
   def validate(config) do
@@ -15,7 +15,7 @@ defmodule Hare.Action.Exchange do
     end
   end
 
-  def run(%{given: given, adapter: adapter}, config, _tags) do
+  def run(%{given: given, adapter: adapter}, config, _exports) do
     name = Keyword.fetch!(config, :name)
     type = Keyword.get(config, :type, @default_type)
     opts = Keyword.get(config, :opts, @default_opts)

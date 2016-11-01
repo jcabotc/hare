@@ -46,14 +46,14 @@ defmodule Hare.Context do
     end
   end
 
-  defp perform(chan, {name, config}, %{tags: tags} = result) do
-    case Action.run(chan, name, config, tags) do
+  defp perform(chan, {name, config}, %{exports: exports} = result) do
+    case Action.run(chan, name, config, exports) do
       :ok ->
-        {:ok, Result.success(result, name, config, nil,  tags)}
+        {:ok, Result.success(result, name, config, nil,  exports)}
       {:ok, info} ->
-        {:ok, Result.success(result, name, config, info, tags)}
-      {:ok, info, new_tags} ->
-        {:ok, Result.success(result, name, config, info, new_tags)}
+        {:ok, Result.success(result, name, config, info, exports)}
+      {:ok, info, new_exports} ->
+        {:ok, Result.success(result, name, config, info, new_exports)}
       {:error, reason} ->
         {:error, Result.failure(result, name, config, reason)}
     end

@@ -1,7 +1,7 @@
-defmodule Hare.Action.Shared.NameAndOpts do
+defmodule Hare.Context.Action.Shared.NameAndOpts do
   @default_opts []
 
-  import Hare.Action.Helper.Validations,
+  import Hare.Context.Action.Helper.Validations,
     only: [validate: 3, validate_keyword: 3]
 
   def validate(config) do

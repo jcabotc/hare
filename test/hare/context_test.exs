@@ -10,7 +10,7 @@ defmodule Hare.ContextTest do
     def validate(config),
       do: Keyword.fetch!(config, :validate)
 
-    def run(%Chan{}, config, _tags),
+    def run(%Chan{}, config, _exports),
       do: Keyword.fetch!(config, :run)
   end
 
@@ -60,7 +60,7 @@ defmodule Hare.ContextTest do
 
     assert {:ok, result} = Context.run(@chan, steps)
     assert expected_steps == Context.Result.steps(result)
-    assert %{foo: "bar"}  == result.tags
+    assert %{foo: "bar"}  == result.exports
   end
 
   test "run/2 when invalid" do

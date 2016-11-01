@@ -1,4 +1,4 @@
-defmodule Hare.Context.Action.DeleteExchange do
+defmodule Hare.Context.Action.DeclareQueue do
   @behaviour Hare.Context.Action
 
   alias Hare.Context.Action.Shared
@@ -8,6 +8,6 @@ defmodule Hare.Context.Action.DeleteExchange do
   end
 
   def run(chan, config, _exports) do
-    Shared.NameAndOpts.run(chan, :delete_exchange, config)
+    Shared.NameAndOpts.run(chan, :declare_queue, config)
   end
 end

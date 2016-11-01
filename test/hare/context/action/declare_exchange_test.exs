@@ -1,7 +1,7 @@
-defmodule Hare.Action.ExchangeTest do
+defmodule Hare.Context.Action.DeclareExchangeTest do
   use ExUnit.Case, async: true
 
-  alias Hare.Action.Exchange
+  alias Hare.Context.Action.DeclareExchange
   alias Hare.Adapter.Sandbox, as: Adapter
 
   test "validate/1" do
@@ -9,18 +9,18 @@ defmodule Hare.Action.ExchangeTest do
               type: :fanout,
               opts: [durable: true]]
 
-    assert :ok == Exchange.validate(config)
+    assert :ok == DeclareExchange.validate(config)
   end
 
   test "validate/1 on error" do
     error = {:error, {:not_present, :name, []}}
-    assert error == Exchange.validate([])
+    assert error == DeclareExchange.validate([])
 
     error = {:error, {:not_binary, :name, :foo}}
-    assert error == Exchange.validate([name: :foo])
+    assert error == DeclareExchange.validate([name: :foo])
 
     error = {:error, {:not_atom, :type, "fanout"}}
-    assert error == Exchange.validate([name: "foo", type: "fanout"])
+    assert error == DeclareExchange.validate([name: "foo", type: "fanout"])
   end
 
   test "run/2" do
@@ -34,13 +34,13 @@ defmodule Hare.Action.ExchangeTest do
     config = [name: "foo",
               type: :fanout,
               opts: [durable: true]]
-    assert :ok == Exchange.run(chan, config, %{})
+    assert :ok == DeclareExchange.run(chan, config, %{})
 
     args = [given_chan, "foo", :fanout, [durable: true]]
     assert {:declare_exchange, args, :ok} == Adapter.Backdoor.last_event(history)
 
     minimal = [name: "foo"]
-    assert :ok == Exchange.run(chan, minimal, %{})
+    assert :ok == DeclareExchange.run(chan, minimal, %{})
 
     args = [given_chan, "foo", :direct, []]
     assert {:declare_exchange, args, :ok} == Adapter.Backdoor.last_event(history)

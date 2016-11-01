@@ -1,7 +1,7 @@
-defmodule Hare.Action.Shared.BindingTest do
+defmodule Hare.Context.Action.Shared.BindingTest do
   use ExUnit.Case, async: true
 
-  alias Hare.Action.Shared.Binding
+  alias Hare.Context.Action.Shared.Binding
   alias Hare.Adapter.Sandbox, as: Adapter
 
   test "validate/1" do
@@ -11,22 +11,22 @@ defmodule Hare.Action.Shared.BindingTest do
 
     assert :ok == Binding.validate(config)
 
-    config = [queue_from_tag: :foo,
-              exchange:       "bar",
-              opts:           [routing_key: "baz.*"]]
+    config = [queue_from_export: :foo,
+              exchange:          "bar",
+              opts:              [routing_key: "baz.*"]]
 
     assert :ok == Binding.validate(config)
   end
 
   test "validate/1 on error" do
-    error = {:error, {:not_present, [:queue, :queue_from_tag], []}}
+    error = {:error, {:not_present, [:queue, :queue_from_export], []}}
     assert error == Binding.validate([])
 
     error = {:error, {:not_binary, :queue, :foo}}
     assert error == Binding.validate([queue: :foo])
 
-    error = {:error, {:not_atom, :queue_from_tag, "foo"}}
-    assert error == Binding.validate([queue_from_tag: "foo"])
+    error = {:error, {:not_atom, :queue_from_export, "foo"}}
+    assert error == Binding.validate([queue_from_export: "foo"])
   end
 
   test "run/2" do
@@ -52,9 +52,9 @@ defmodule Hare.Action.Shared.BindingTest do
     args = [given_chan, "foo", "bar", []]
     assert {:bind, args, :ok} == Adapter.Backdoor.last_event(history)
 
-    from_tag = [queue_from_tag: :baz,
-                exchange:       "bar"]
-    assert :ok == Binding.run(chan, :bind, from_tag, %{baz: "foo"})
+    from_export = [queue_from_export: :baz,
+                   exchange:       "bar"]
+    assert :ok == Binding.run(chan, :bind, from_export, %{baz: "foo"})
 
     args = [given_chan, "foo", "bar", []]
     assert {:bind, args, :ok} == Adapter.Backdoor.last_event(history)

@@ -1,7 +1,7 @@
-defmodule Hare.Action.Shared.NameAndOptsTest do
+defmodule Hare.Context.Action.Shared.NameAndOptsTest do
   use ExUnit.Case, async: true
 
-  alias Hare.Action.Shared.NameAndOpts
+  alias Hare.Context.Action.Shared.NameAndOpts
   alias Hare.Adapter.Sandbox, as: Adapter
 
   test "validate/1" do

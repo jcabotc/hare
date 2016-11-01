@@ -10,7 +10,7 @@ defmodule Hare.Context.ActionTest do
     def validate(config),
       do: Keyword.fetch!(config, :validate)
 
-    def run(%Chan{}, config, _tags),
+    def run(%Chan{}, config, _exports),
       do: Keyword.fetch!(config, :run)
   end
 

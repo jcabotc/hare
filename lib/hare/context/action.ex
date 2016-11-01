@@ -5,10 +5,10 @@ defmodule Hare.Context.Action do
               :ok |
               {:error, term}
 
-  @callback run(chan :: Hare.Core.Chan.t, config, tags :: map) ::
+  @callback run(chan :: Hare.Core.Chan.t, config, exports :: map) ::
               :ok |
               {:ok, info :: term} |
-              {:ok, info :: term, tags :: map} |
+              {:ok, info :: term, exports :: map} |
               {:error, term}
 
   alias __MODULE__
@@ -28,9 +28,9 @@ defmodule Hare.Context.Action do
     module.validate(config)
   end
 
-  def run(chan, name_or_module, config, tags, known \\ @known) do
+  def run(chan, name_or_module, config, exports, known \\ @known) do
     module = ensure_module(name_or_module, known)
-    module.run(chan, config, tags)
+    module.run(chan, config, exports)
   end
 
   defp ensure_module(name_or_module, known) do

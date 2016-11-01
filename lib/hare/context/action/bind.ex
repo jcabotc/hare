@@ -1,13 +1,13 @@
-defmodule Hare.Action.Bind do
-  @behaviour Hare.Core.Action
+defmodule Hare.Context.Action.Bind do
+  @behaviour Hare.Context.Action
 
-  alias Hare.Action.Shared
+  alias Hare.Context.Action.Shared
 
   def validate(config) do
     Shared.Binding.validate(config)
   end
 
-  def run(chan, config, tags) do
-    Shared.Binding.run(chan, :bind, config, tags)
+  def run(chan, config, exports) do
+    Shared.Binding.run(chan, :bind, config, exports)
   end
 end
