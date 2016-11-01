@@ -16,6 +16,26 @@ defmodule Hare.Core.ExchangeTest do
     {:ok, %{history: history, chan: chan}}
   end
 
+  test "declare/4 and delete/2", %{history: history, chan: chan} do
+    assert {:ok, exchange} = Exchange.declare(chan, "foo", :fanout, durable: true)
+    assert exchange.chan == chan
+    assert exchange.name == "foo"
+
+    assert {:declare_exchange,
+            [_given, "foo", :fanout, [durable: true]],
+            :ok} = Adapter.Backdoor.last_event(history)
+
+    assert {:ok, ^exchange} = Exchange.declare(chan, "foo")
+    assert {:declare_exchange,
+            [_given, "foo", :direct, []],
+            :ok} = Adapter.Backdoor.last_event(history)
+
+    assert :ok == Exchange.delete(exchange)
+    assert {:delete_exchange,
+            [_given, "foo", []],
+            :ok} = Adapter.Backdoor.last_event(history)
+  end
+
   test "new/2, publish/2 and /4", %{history: history, chan: chan} do
     exchange = Exchange.new(chan, "foo")
 
