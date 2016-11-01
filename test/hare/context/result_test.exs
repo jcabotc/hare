@@ -1,7 +1,7 @@
-defmodule Hare.Core.Declaration.ResultTest do
+defmodule Hare.Context.ResultTest do
   use ExUnit.Case, async: true
 
-  alias Hare.Core.Declaration.Result
+  alias Hare.Context.Result
 
   test "registering events" do
     result = Result.new

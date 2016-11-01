@@ -1,11 +1,11 @@
-defmodule Hare.Core.Declaration.DeclarableTest do
+defmodule Hare.Context.ActionTest do
   use ExUnit.Case, async: true
 
-  alias Hare.Core.Declaration.Declarable
+  alias Hare.Context.Action
   alias Hare.Core.Chan
 
-  defmodule TestDeclarable do
-    @behaviour Declarable
+  defmodule TestAction do
+    @behaviour Action
 
     def validate(config),
       do: Keyword.fetch!(config, :validate)
@@ -14,13 +14,13 @@ defmodule Hare.Core.Declaration.DeclarableTest do
       do: Keyword.fetch!(config, :run)
   end
 
-  @known %{foo: TestDeclarable}
+  @known %{foo: TestAction}
 
   test "validate/1" do
     error  = {:error, :some_reason}
     config = [validate: error]
 
-    assert error == Declarable.validate(:foo, config, @known)
+    assert error == Action.validate(:foo, config, @known)
   end
 
   test "run/2" do
@@ -28,6 +28,6 @@ defmodule Hare.Core.Declaration.DeclarableTest do
     result = {:ok, :info, %{}}
     config = [run: result]
 
-    assert result == Declarable.run(chan, TestDeclarable, config, %{})
+    assert result == Action.run(chan, TestAction, config, %{})
   end
 end

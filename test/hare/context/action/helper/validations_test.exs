@@ -1,7 +1,7 @@
-defmodule Hare.Core.Declaration.Helper.ValidationsTest do
+defmodule Hare.Action.Helper.ValidationsTest do
   use ExUnit.Case, async: true
 
-  alias Hare.Core.Declaration.Declarable.Helper.Validations
+  alias Hare.Action.Helper.Validations
   require Validations
 
   test "validate/3" do

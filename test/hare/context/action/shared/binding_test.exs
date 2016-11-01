@@ -1,7 +1,7 @@
-defmodule Hare.Core.Declaration.Declarable.Shared.BindingTest do
+defmodule Hare.Action.Shared.BindingTest do
   use ExUnit.Case, async: true
 
-  alias Hare.Core.Declaration.Declarable.Shared.Binding
+  alias Hare.Action.Shared.Binding
   alias Hare.Adapter.Sandbox, as: Adapter
 
   test "validate/1" do

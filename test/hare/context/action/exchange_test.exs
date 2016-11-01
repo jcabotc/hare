@@ -1,7 +1,7 @@
-defmodule Hare.Core.Declaration.Declarable.ExchangeTest do
+defmodule Hare.Action.ExchangeTest do
   use ExUnit.Case, async: true
 
-  alias Hare.Core.Declaration.Declarable.Exchange
+  alias Hare.Action.Exchange
   alias Hare.Adapter.Sandbox, as: Adapter
 
   test "validate/1" do

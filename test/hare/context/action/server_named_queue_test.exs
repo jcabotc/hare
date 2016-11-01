@@ -1,7 +1,7 @@
-defmodule Hare.Core.Declaration.Declarable.ServerNamedQueueTest do
+defmodule Hare.Action.ServerNamedQueueTest do
   use ExUnit.Case, async: true
 
-  alias Hare.Core.Declaration.Declarable.ServerNamedQueue
+  alias Hare.Action.ServerNamedQueue
   alias Hare.Adapter.Sandbox, as: Adapter
 
   test "validate/1" do
