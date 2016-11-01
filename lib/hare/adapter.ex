@@ -35,6 +35,9 @@ defmodule Hare.Adapter do
   @callback unlink_channel(chan) ::
               true
 
+  @callback qos(chan, opts) ::
+              :ok
+
   @callback close_channel(chan) ::
               :ok
 
@@ -79,6 +82,9 @@ defmodule Hare.Adapter do
 
   @callback get(chan, queue, opts) ::
               {:empty, info :: map} | {:ok, payload, meta}
+
+  @callback purge(chan, queue) ::
+              {:ok, info :: map}
 
   @callback consume(chan, queue, pid, opts) ::
               {:ok, consumer_tag}

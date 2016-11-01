@@ -9,6 +9,9 @@ defmodule Hare.Core.Chan do
   def new(given, adapter),
     do: %Chan{given: given, adapter: adapter}
 
+  def qos(%Chan{given: given, adapter: adapter}, opts \\ []),
+    do: adapter.qos(given, opts)
+
   def monitor(%Chan{given: given, adapter: adapter}),
     do: adapter.monitor_channel(given)
 

@@ -43,6 +43,10 @@ defmodule Hare.Adapter.Sandbox do
     register(chan, {:unlink_channel, [chan], result})
   end
 
+  def qos(chan, opts) do
+    register(chan, {:qos, [chan, opts], :ok})
+  end
+
   def close_channel(chan) do
     result = Chan.close(chan)
     register(chan, {:close_channel, [chan], result})
@@ -95,6 +99,10 @@ defmodule Hare.Adapter.Sandbox do
     end
 
     register(chan, {:get, [chan, queue, opts], result})
+  end
+
+  def purge(chan, queue) do
+    register(chan, {:purge, [chan, queue], {:ok, %{}}})
   end
 
   def consume(chan, queue, pid, opts) do
