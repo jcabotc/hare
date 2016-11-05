@@ -75,7 +75,7 @@ defmodule Hare.Adapter do
   @callback publish(chan, exchange, payload, routing_key, opts) ::
               :ok
 
-  # Get
+  # Consume
   #
   @type meta         :: map
   @type consumer_tag :: binary

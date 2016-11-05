@@ -103,7 +103,7 @@ defmodule Hare.Core.QueueTest do
             {:get,    [given, "baz", [no_ack: true]],   {:ok, "foo", ^meta}} | _] = Enum.reverse(events)
   end
 
-  test "consume and cancel" do
+  test "consume, message handling and cancel" do
     test_pid        = self
     {history, chan} = build_channel
 
@@ -116,6 +116,9 @@ defmodule Hare.Core.QueueTest do
             {:ok, ^tag}} = Adapter.Backdoor.last_event(history)
 
     assert {:error, :already_consuming} = Queue.consume(queue)
+
+    assert {:consume_ok, %{}} = Queue.handle(queue, {:consume_ok, %{}})
+    assert :unknown           = Queue.handle(queue, :another)
 
     assert {:ok, queue} = Queue.cancel(queue, [no_wait: true])
     assert %{consuming: false, consuming_pid: nil, consumer_tag: nil} = queue

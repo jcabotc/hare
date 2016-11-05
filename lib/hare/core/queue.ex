@@ -93,6 +93,9 @@ defmodule Hare.Core.Queue do
     end
   end
 
+  def handle(%Queue{chan: %{adapter: adapter}}, message),
+    do: adapter.handle(message)
+
   def cancel(queue, opts \\ [])
   def cancel(%Queue{consuming: false} = queue, _opts) do
     {:ok, queue}
