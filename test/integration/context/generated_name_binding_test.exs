@@ -2,7 +2,6 @@ defmodule Hare.IntegrationTest.Context.GeneratedNameBindingTest do
   use ExUnit.Case, async: true
 
   alias Hare.Context
-  alias Hare.Core.Exchange
   alias Hare.Adapter.Sandbox, as: Adapter
 
   test "run/2" do
@@ -36,7 +35,7 @@ defmodule Hare.IntegrationTest.Context.GeneratedNameBindingTest do
       exchange: %{
         status: :success,
         config: [name: "events", type: :topic, opts: [durable: true]],
-        info:   %Exchange{chan: ^chan, name: "events"}},
+        info:   nil},
       bind: %{
         status: :success,
         config: [queue_from_export: :temporary_queue, exchange: "events", opts: [routing_key: "log.*"]],

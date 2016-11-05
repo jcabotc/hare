@@ -32,17 +32,15 @@ defmodule Hare.Context.Action.DeclareExchangeTest do
     {:ok, given_chan} = Adapter.open_channel(given_conn)
     chan = Hare.Core.Chan.new(given_chan, Adapter)
 
-    config = [name: "foo",
-              type: :fanout,
-              opts: [durable: true]]
-    assert {:ok, exchange} = DeclareExchange.run(chan, config, %{})
-    assert %Exchange{chan: chan, name: "foo"} == exchange
+    config = [name: "foo", type: :fanout, opts: [durable: true]]
+    assert {:ok, nil} = DeclareExchange.run(chan, config, %{})
 
     args = [given_chan, "foo", :fanout, [durable: true]]
     assert {:declare_exchange, args, :ok} == Adapter.Backdoor.last_event(history)
 
     minimal = [name: "foo", export_as: :foo]
-    assert {:ok, exchange, %{foo: exchange}} == DeclareExchange.run(chan, minimal, %{})
+    assert {:ok, nil, %{foo: exchange}} = DeclareExchange.run(chan, minimal, %{})
+    assert %Exchange{chan: chan, name: "foo"} == exchange
 
     args = [given_chan, "foo", :direct, []]
     assert {:declare_exchange, args, :ok} == Adapter.Backdoor.last_event(history)

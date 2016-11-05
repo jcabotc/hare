@@ -31,9 +31,9 @@ defmodule Hare.Context.Action.DeclareExchange do
   defp handle_exports(exchange, exports, config) do
     case Keyword.fetch(config, :export_as) do
       {:ok, export_tag} ->
-        {:ok, exchange, Map.put(exports, export_tag, exchange)}
+        {:ok, nil, Map.put(exports, export_tag, exchange)}
       :error ->
-        {:ok, exchange}
+        {:ok, nil}
     end
   end
 end
