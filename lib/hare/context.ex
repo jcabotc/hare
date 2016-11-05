@@ -25,17 +25,25 @@ defmodule Hare.Context do
     end
   end
 
-  @spec run(Chan.t, steps) ::
+  @spec run(Chan.t, steps, opts :: Keyword.t) ::
           {:invalid, term} |
           {:ok, Result.t} |
           {:error, Result.t}
-  def run(%Chan{} = chan, steps) do
+  def run(%Chan{} = chan, steps, opts \\ []) do
+    case Keyword.get(opts, :validate, true) do
+      true  -> validate_and_run_each(chan, steps)
+      false -> run_each(chan, steps)
+    end
+  end
+
+  defp validate_and_run_each(chan, steps) do
     case validate(steps) do
-      :ok              -> run_each(chan, steps, Result.new)
+      :ok              -> run_each(chan, steps)
       {:error, reason} -> {:invalid, reason}
     end
   end
 
+  defp run_each(chan, steps, result \\ Result.new)
   defp run_each(_chan, [], result) do
     {:ok, result}
   end
