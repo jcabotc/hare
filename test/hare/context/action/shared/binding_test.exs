@@ -1,6 +1,7 @@
 defmodule Hare.Context.Action.Shared.BindingTest do
   use ExUnit.Case, async: true
 
+  alias Hare.Core.{Queue, Exchange}
   alias Hare.Context.Action.Shared.Binding
   alias Hare.Adapter.Sandbox, as: Adapter
 
@@ -35,26 +36,27 @@ defmodule Hare.Context.Action.Shared.BindingTest do
 
     {:ok, given_conn} = Adapter.open_connection(config)
     {:ok, given_chan} = Adapter.open_channel(given_conn)
-    chan = Hare.Core.Chan.new(given_chan, Adapter)
 
-    config = [queue:    "foo",
-              exchange: "bar",
-              opts: [durable: true]]
-    assert :ok == Binding.run(chan, :bind, config, %{})
+    chan        = Hare.Core.Chan.new(given_chan, Adapter)
+    binding_fun = &Queue.bind/3
+
+    config = [queue: "foo", exchange: "bar", opts: [durable: true]]
+    assert {:ok, nil} == Binding.run(binding_fun, chan, config, %{})
 
     args = [given_chan, "foo", "bar", [durable: true]]
     assert {:bind, args, :ok} == Adapter.Backdoor.last_event(history)
 
-    minimal = [queue:    "foo",
-               exchange: "bar"]
-    assert :ok == Binding.run(chan, :bind, minimal, %{})
+    minimal = [queue: "foo", exchange: "bar", export_as: :baz]
+    assert {:ok, nil, %{baz: {queue, exchange}}} = Binding.run(binding_fun, chan, minimal, %{})
+    assert %Queue{chan: chan, name: "foo"} == queue
+    assert %Exchange{chan: chan, name: "bar"} == exchange
 
     args = [given_chan, "foo", "bar", []]
     assert {:bind, args, :ok} == Adapter.Backdoor.last_event(history)
 
-    from_export = [queue_from_export: :baz,
-                   exchange:       "bar"]
-    assert :ok == Binding.run(chan, :bind, from_export, %{baz: "foo"})
+    from_export = [queue_from_export: :queue, exchange_from_export: :exchange]
+    exports = %{queue: queue, exchange: exchange}
+    assert {:ok, nil} == Binding.run(binding_fun, chan, from_export, exports)
 
     args = [given_chan, "foo", "bar", []]
     assert {:bind, args, :ok} == Adapter.Backdoor.last_event(history)
