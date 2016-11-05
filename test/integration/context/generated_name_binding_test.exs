@@ -14,8 +14,8 @@ defmodule Hare.IntegrationTest.Context.GeneratedNameBindingTest do
 
     steps = [
       server_named_queue: [
-        export: :temporary_queue,
-        opts:   [exclusive: true, auto_delete: true]],
+        export_as: :temporary_queue,
+        opts:      [exclusive: true, auto_delete: true]],
       exchange: [
         name: "events",
         type: :topic,
