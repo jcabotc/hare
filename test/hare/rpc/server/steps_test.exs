@@ -6,6 +6,9 @@ defmodule Hare.RPC.Server.StepsTest do
   defmodule ValidContext do
     def validate(_steps),
       do: :ok
+
+    def run(chan, steps, opts),
+      do: {:ok, %{exports: %{args: {chan, steps, opts}}}}
   end
   defmodule InvalidContext do
     def validate(_steps),
@@ -39,5 +42,13 @@ defmodule Hare.RPC.Server.StepsTest do
                       opts: [durable: true]]]
 
     assert {:error, :invalid} == Steps.parse(config, InvalidContext)
+  end
+
+  test "run/3" do
+    chan  = :fake_chan
+    steps = :fake_steps
+
+    expected_args = {chan, steps, validate: false}
+    assert {:ok, %{args: expected_args}} == Steps.run(chan, steps, ValidContext)
   end
 end

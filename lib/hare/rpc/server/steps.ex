@@ -20,4 +20,10 @@ defmodule Hare.RPC.Server.Steps do
     [default_exchange: [export_as: :exchange],
      declare_queue:    [{:export_as, :queue} | queue_config]]
   end
+
+  def run(chan, steps, context) do
+    with {:ok, result} <- context.run(chan, steps, validate: false) do
+      {:ok, result.exports}
+    end
+  end
 end
