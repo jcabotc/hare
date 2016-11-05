@@ -110,6 +110,15 @@ defmodule Hare.Adapter.Sandbox do
     register(chan, {:consume, [chan, queue, pid, opts], {:ok, tag}})
   end
 
+  def handle({:consume_ok, _meta} = message),
+    do: message
+  def handle({:deliver, _payload, _meta} = message),
+    do: message
+  def handle({:cancel_ok, _meta} = message),
+    do: message
+  def handle(_message),
+    do: :unknown
+
   def cancel(chan, consumer_tag, opts) do
     register(chan, {:cancel, [chan, consumer_tag, opts], :ok})
   end

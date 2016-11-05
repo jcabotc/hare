@@ -89,6 +89,12 @@ defmodule Hare.Adapter do
   @callback consume(chan, queue, pid, opts) ::
               {:ok, consumer_tag}
 
+  @callback handle(message :: term) ::
+              {:consume_ok, meta} |
+              {:deliver, payload, meta} |
+              {:cancel_ok, meta} |
+              :unknown
+
   @callback cancel(chan, consumer_tag, opts) ::
               :ok
 
