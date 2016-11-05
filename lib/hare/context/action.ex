@@ -15,6 +15,7 @@ defmodule Hare.Context.Action do
 
   @known %{exchange:           Action.DeclareExchange,
            declare_exchange:   Action.DeclareExchange,
+           default_exchange:   Action.DefaultExchange,
            delete_exchange:    Action.DeleteExchange,
            queue:              Action.DeclareQueue,
            declare_queue:      Action.DeclareQueue,
