@@ -1,6 +1,7 @@
 defmodule Hare.Context.Action.DeclareExchangeTest do
   use ExUnit.Case, async: true
 
+  alias Hare.Core.Exchange
   alias Hare.Context.Action.DeclareExchange
   alias Hare.Adapter.Sandbox, as: Adapter
 
@@ -34,13 +35,14 @@ defmodule Hare.Context.Action.DeclareExchangeTest do
     config = [name: "foo",
               type: :fanout,
               opts: [durable: true]]
-    assert :ok == DeclareExchange.run(chan, config, %{})
+    assert {:ok, exchange} = DeclareExchange.run(chan, config, %{})
+    assert %Exchange{chan: chan, name: "foo"} == exchange
 
     args = [given_chan, "foo", :fanout, [durable: true]]
     assert {:declare_exchange, args, :ok} == Adapter.Backdoor.last_event(history)
 
-    minimal = [name: "foo"]
-    assert :ok == DeclareExchange.run(chan, minimal, %{})
+    minimal = [name: "foo", export_as: :foo]
+    assert {:ok, exchange, %{foo: exchange}} == DeclareExchange.run(chan, minimal, %{})
 
     args = [given_chan, "foo", :direct, []]
     assert {:declare_exchange, args, :ok} == Adapter.Backdoor.last_event(history)
