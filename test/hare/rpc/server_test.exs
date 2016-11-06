@@ -15,10 +15,16 @@ defmodule Hare.RPC.ServerTest do
       {:noreply, pid}
     end
 
-    def handle_message(payload, meta, pid) do
+    def handle_message("implicit " <> _ = payload, meta, pid) do
       send(pid, {:message, payload, meta})
       response =  "received: #{payload}"
       {:reply, response, pid}
+    end
+    def handle_message("explicit " <> _ = payload, meta, pid) do
+      send(pid, {:message, payload, meta})
+      response =  "received: #{payload}"
+      Server.reply(meta, response)
+      {:noreply, pid}
     end
 
     def handle_info(message, pid) do
@@ -55,7 +61,7 @@ defmodule Hare.RPC.ServerTest do
     assert %{chan: chan, name: "foo"} = queue
     assert %{chan: ^chan, name: ""} = exchange
 
-    payload = "a binary message"
+    payload = "implicit - a binary message"
     meta    = %{reply_to: "response_queue", correlation_id: 10}
     send(rpc_server, {:deliver, payload, meta})
 
@@ -74,7 +80,7 @@ defmodule Hare.RPC.ServerTest do
     Adapter.Backdoor.crash(given_chan_1)
     Process.sleep(5)
 
-    payload = "another message"
+    payload = "explicit - another message"
     meta    = %{reply_to: "response_queue", correlation_id: 11}
     send(rpc_server, {:deliver, payload, meta})
 
