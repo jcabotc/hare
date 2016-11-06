@@ -56,10 +56,11 @@ defmodule Hare.RPC.Server do
 
   def connect(_info, %{conn: conn, declaration: declaration} = state) do
     with {:ok, chan}            <- Chan.open(conn),
-         {:ok, queue, exchange} <- Declaration.run(declaration, chan) do
+         {:ok, queue, exchange} <- Declaration.run(declaration, chan),
+         {:ok, new_queue}       <- Queue.consume(queue) do
       ref = Chan.monitor(chan)
 
-      {:ok, State.connected(state, chan, ref, queue, exchange)}
+      {:ok, State.connected(state, chan, ref, new_queue, exchange)}
     else
       {:error, reason} -> {:stop, reason}
     end
