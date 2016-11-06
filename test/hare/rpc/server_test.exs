@@ -56,15 +56,17 @@ defmodule Hare.RPC.ServerTest do
     {:ok, rpc_server} = EchoTestServer.start_link(conn, config, self)
 
     send(rpc_server, {:consume_ok, %{bar: "baz"}})
-
     assert_receive {:ready, %{bar: "baz", queue: queue, exchange: exchange}}
     assert %{chan: chan, name: "foo"} = queue
     assert %{chan: ^chan, name: ""} = exchange
 
+    send(rpc_server, :some_message)
+    assert_receive {:info, :some_message}
+
     payload = "implicit - a binary message"
     meta    = %{reply_to: "response_queue", correlation_id: 10}
-    send(rpc_server, {:deliver, payload, meta})
 
+    send(rpc_server, {:deliver, payload, meta})
     expected_meta = Map.merge(meta, %{queue: queue, exchange: exchange})
     assert_receive {:message, payload, ^expected_meta}
 
@@ -82,8 +84,8 @@ defmodule Hare.RPC.ServerTest do
 
     payload = "explicit - another message"
     meta    = %{reply_to: "response_queue", correlation_id: 11}
-    send(rpc_server, {:deliver, payload, meta})
 
+    send(rpc_server, {:deliver, payload, meta})
     assert_receive {:message, payload, _meta}
 
     reply   = "received: #{payload}"
