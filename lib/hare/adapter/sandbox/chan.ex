@@ -31,7 +31,7 @@ defmodule Hare.Adapter.Sandbox.Chan do
     do: Conn.get_message(conn)
 
   defp new(conn) do
-    {:ok, pid} = Pid.start_link(fn -> Conn.monitor(conn) end)
+    {:ok, pid} = Pid.start(fn -> Conn.monitor(conn) end)
 
     %Chan{pid: pid, conn: conn}
   end
