@@ -6,6 +6,9 @@ defmodule Hare.Core.Chan do
 
   defstruct [:given, :adapter]
 
+  def open(conn),
+    do: Hare.Core.Conn.open_channel(conn)
+
   def new(given, adapter),
     do: %Chan{given: given, adapter: adapter}
 

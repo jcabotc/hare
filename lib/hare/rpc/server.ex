@@ -1,60 +1,142 @@
-# defmodule Hare.RPC.Server do
-#   use Connection
-#
-#   alias __MODULE__.State
-#
-#   def start_link(mod, conn, config, initial, opts \\ []) do
-#     GenServer.start_link(__MODULE__, {mod, conn, config, initial}, opts)
-#   end
-#
-#   def init({mod, conn, config, initial}) do
-#     state = State.new(mod, conn, config)
-#
-#     case State.init(state, initial) do
-#       {:ok, new_state}          -> {:ok, new_state}
-#       {:ok, new_state, timeout} -> {:ok, new_state, timeout}
-#       {:consume, new_state}     -> {:connect, :init, new_state}
-#       :ignore                   -> :ignore
-#       {:stop, reason}           -> {:stop, reason}
-#     end
-#   end
-#
-#   def connect(_info, %{conn: conn, config: config} = state) do
-#     case State.open_channel(state) do
-#       {:ok, new_state} -> {:ok, new_state}
-#       {:error, reason} -> {:stop, reason}
-#     end
-#   end
-#
-#   def disconnect(_info, state) do
-#     new_state = State.close_channel(state)
-#
-#     {:stop, :normal, new_state}
-#   end
-# end
+defmodule Hare.RPC.Server do
+  defmacro __using__(_opts \\ []) do
+    quote location: :keep do
+      def init(initial),
+        do: {:ok, initial}
 
-# defmodule Segmentator.RpcServer.V1.Segment do
-#   alias Hare.RPC.Server, as: RPC
-#   use RPC
-#
-#   def start_link(opts \\ []) do
-#     RPC.start_link(__MODULE__, :ok, opts)
-#   end
-#
-#   def init(:ok) do
-#     {:ok, %{}}
-#   end
-#
-#   def handle_message({payload, _meta}, state) do
-#     response = do_something(payload)
-#
-#     {:reply, response, state}
-#   end
-#
-#   def handle_message({payload, meta}, state) do
-#     responder = &RPC.reply(meta, &1)
-#     do_something(payload, responder)
-#
-#     {:noreply, state}
-#   end
-# end
+      def handle_ready(_meta, state),
+        do: {:noreply, state}
+
+      def handle_message(_payload, _meta, state),
+        do: {:noreply, state}
+
+      def handle_info(_message, state),
+        do: {:noreply, state}
+
+      def terminate(_reason, _state),
+        do: :ok
+
+      defoverridable [init: 1, terminate: 2,
+                      handle_ready: 2, handle_message: 3, handle_info: 2]
+    end
+  end
+
+  use Connection
+
+  alias __MODULE__.{Declaration, State}
+  alias Hare.Core.{Chan, Queue, Exchange}
+
+  @context Hare.Context
+
+  def start_link(mod, conn, config, initial, opts \\ []) do
+    {context, opts} = Keyword.pop(opts, :context, @context)
+    args = {mod, conn, config, context, initial}
+
+    Connection.start_link(__MODULE__, args, opts)
+  end
+
+  def reply(meta, response) do
+    %{exchange:       exchange,
+      reply_to:       target,
+      correlation_id: correlation_id} = meta
+
+    opts = [correlation_id: correlation_id]
+    Exchange.publish(exchange, response, target, opts)
+  end
+
+  def init({mod, conn, config, context, initial}) do
+    with {:ok, declaration} <- Declaration.parse(config, context),
+         {:ok, given}       <- mod.init(initial) do
+      {:connect, :init, State.new(conn, declaration, mod, given)}
+    else
+      {:error, reason} -> {:stop, {:config_error, reason, config}}
+      other            -> other
+    end
+  end
+
+  def connect(_info, %{conn: conn, declaration: declaration} = state) do
+    with {:ok, chan}            <- Chan.open(conn),
+         {:ok, queue, exchange} <- Declaration.run(declaration, chan) do
+      ref = Chan.monitor(chan)
+
+      {:ok, State.connected(state, chan, ref, queue, exchange)}
+    else
+      {:error, reason} -> {:stop, reason}
+    end
+  end
+
+  def disconnect(_info, state),
+    do: {:stop, :normal, state}
+
+  def handle_info({:DOWN, ref, _, _, _reason}, %{status: :connected, ref: ref} = state) do
+    {:connect, :down, State.chan_down(state)}
+  end
+  def handle_info(message, %{status: :connected, queue: queue} = state) do
+    case Queue.handle(queue, message) do
+      {:consume_ok, meta} ->
+        handle_mod_ready(meta, state)
+
+      {:deliver, payload, meta} ->
+        handle_mod_message(payload, meta, state)
+
+      {:cancel_ok, _meta} ->
+        {:stop, :cancelled, state}
+
+      :unknown ->
+        handle_mod_info(message, state)
+    end
+  end
+  def handle_info(message, state) do
+    handle_mod_info(message, state)
+  end
+
+  def terminate(reason, %{status: :connected, chan: chan} = state) do
+    mod_terminate(reason, state)
+    Chan.close(chan)
+  end
+  def terminate(reason, state) do
+    mod_terminate(reason, state)
+  end
+
+  defp mod_terminate(reason, %{mod: mod, given: given}),
+    do: mod.terminate(reason, given)
+
+  defp handle_mod_ready(meta, %{mod: mod, given: given} = state) do
+    case mod.handle_ready(complete(meta, state), given) do
+      {:noreply, new_given} ->
+        {:noreply, State.set(state, new_given)}
+
+      {:stop, reason, new_given} ->
+        {:stop, reason, State.set(state, new_given)}
+    end
+  end
+
+  defp handle_mod_message(payload, meta, %{mod: mod, given: given} = state) do
+    completed_meta = complete(meta, state)
+
+    case mod.handle_message(payload, completed_meta, given) do
+      {:noreply, new_given} ->
+        {:noreply, State.set(state, new_given)}
+
+      {:reply, response, new_given} ->
+        reply(completed_meta, response)
+        {:noreply, State.set(state, new_given)}
+
+      {:stop, reason, new_given} ->
+        {:stop, reason, State.set(state, new_given)}
+    end
+  end
+
+  defp handle_mod_info(message, %{mod: mod, given: given} = state) do
+    case mod.handle_info(message, given) do
+      {:noreply, new_given} ->
+        {:noreply, State.set(state, new_given)}
+
+      {:stop, reason, new_given} ->
+        {:stop, reason, State.set(state, new_given)}
+    end
+  end
+
+  defp complete(meta, %{queue: queue, exchange: exchange}),
+    do: meta |> Map.put(:exchange, exchange) |> Map.put(:queue, queue)
+end

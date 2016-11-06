@@ -1,8 +1,12 @@
-defmodule Hare.RPC.Server.Steps do
+defmodule Hare.RPC.Server.Declaration do
+  alias __MODULE__
+
+  defstruct [:steps, :context]
+
   def parse(config, context) do
     with {:ok, steps} <- steps(config),
          :ok          <- context.validate(steps) do
-      {:ok, steps}
+      {:ok, %Declaration{steps: steps, context: context}}
     end
   end
 
@@ -21,9 +25,11 @@ defmodule Hare.RPC.Server.Steps do
      declare_queue:    [{:export_as, :queue} | queue_config]]
   end
 
-  def run(chan, steps, context) do
+  def run(%Declaration{steps: steps, context: context}, chan) do
     with {:ok, result} <- context.run(chan, steps, validate: false) do
-      {:ok, result.exports}
+      %{queue: queue, exchange: exchange} = result.exports
+
+      {:ok, queue, exchange}
     end
   end
 end

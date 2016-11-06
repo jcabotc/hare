@@ -15,6 +15,8 @@ defmodule Hare.Adapter.Sandbox.Backdoor do
     do: Conn.History.events(history)
   def last_event(history),
     do: Conn.History.last_event(history)
+  def last_events(history, count),
+    do: Conn.History.last_events(history, count)
 
   def unlink(%Conn{} = conn),
     do: Conn.unlink(conn)
