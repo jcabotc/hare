@@ -1,13 +1,38 @@
 defmodule Hare.RPC.Server do
+  @type payload :: binary
+  @type meta    :: map
+  @type state   :: term
+
+  @callback init(initial :: term) ::
+              GenServer.on_start
+
+  @callback handle_ready(meta, state) ::
+              {:noreply, state} |
+              {:stop, reason :: term, state}
+
+  @callback handle_request(payload, meta, state) ::
+              {:noreply, state} |
+              {:reply, response :: binary, state} |
+              {:stop, reason :: term, state}
+
+  @callback handle_info(meta, state) ::
+              {:noreply, state} |
+              {:stop, reason :: term, state}
+
+  @callback terminate(reason :: term, state) ::
+              any
+
   defmacro __using__(_opts \\ []) do
     quote location: :keep do
+      @behaviour Hare.RPC.Server
+
       def init(initial),
         do: {:ok, initial}
 
       def handle_ready(_meta, state),
         do: {:noreply, state}
 
-      def handle_message(_payload, _meta, state),
+      def handle_request(_payload, _meta, state),
         do: {:noreply, state}
 
       def handle_info(_message, state),
@@ -17,7 +42,7 @@ defmodule Hare.RPC.Server do
         do: :ok
 
       defoverridable [init: 1, terminate: 2,
-                      handle_ready: 2, handle_message: 3, handle_info: 2]
+                      handle_ready: 2, handle_request: 3, handle_info: 2]
     end
   end
 
@@ -115,7 +140,7 @@ defmodule Hare.RPC.Server do
   defp handle_mod_message(payload, meta, %{mod: mod, given: given} = state) do
     completed_meta = complete(meta, state)
 
-    case mod.handle_message(payload, completed_meta, given) do
+    case mod.handle_request(payload, completed_meta, given) do
       {:noreply, new_given} ->
         {:noreply, State.set(state, new_given)}
 
