@@ -13,16 +13,17 @@ defmodule Hare.Context.Action do
 
   alias __MODULE__
 
-  @known %{exchange:           Action.DeclareExchange,
-           declare_exchange:   Action.DeclareExchange,
-           default_exchange:   Action.DefaultExchange,
-           delete_exchange:    Action.DeleteExchange,
-           queue:              Action.DeclareQueue,
-           declare_queue:      Action.DeclareQueue,
-           delete_queue:       Action.DeleteQueue,
-           server_named_queue: Action.ServerNamedQueue,
-           bind:               Action.Bind,
-           unbind:             Action.Unbind}
+  @known %{exchange:                   Action.DeclareExchange,
+           declare_exchange:           Action.DeclareExchange,
+           default_exchange:           Action.DefaultExchange,
+           delete_exchange:            Action.DeleteExchange,
+           queue:                      Action.DeclareQueue,
+           declare_queue:              Action.DeclareQueue,
+           delete_queue:               Action.DeleteQueue,
+           declare_server_named_queue: Action.DeclareServerNamedQueue,
+           server_named_queue:         Action.DeclareServerNamedQueue,
+           bind:                       Action.Bind,
+           unbind:                     Action.Unbind}
 
   def validate(name_or_module, config, known \\ @known) do
     module = ensure_module(name_or_module, known)

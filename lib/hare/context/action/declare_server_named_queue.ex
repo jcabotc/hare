@@ -1,4 +1,4 @@
-defmodule Hare.Context.Action.ServerNamedQueue do
+defmodule Hare.Context.Action.DeclareServerNamedQueue do
   @behaviour Hare.Context.Action
 
   alias Hare.Core.Queue
