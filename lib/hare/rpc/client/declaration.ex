@@ -1,10 +1,14 @@
-defmodule Hare.RPC.Server.Declaration do
+defmodule Hare.RPC.Client.Declaration do
   alias __MODULE__
 
   defstruct [:steps, :context]
 
   @exchange_step {:default_exchange, [
                     export_as: :exchange]}
+
+  @response_queue_step {:declare_server_named_queue, [
+                          export_as: :response_queue,
+                          opts:      [auto_delete: true, exclusive: true]]}
 
   def parse(config, context) do
     with {:ok, steps} <- steps(config),
@@ -25,14 +29,17 @@ defmodule Hare.RPC.Server.Declaration do
 
   defp build_steps(queue_config) do
     [@exchange_step,
-     declare_queue: [{:export_as, :queue} | queue_config]]
+     @response_queue_step,
+     declare_queue: [{:export_as, :request_queue} | queue_config]]
   end
 
   def run(%Declaration{steps: steps, context: context}, chan) do
     with {:ok, result} <- context.run(chan, steps, validate: false) do
-      %{queue: queue, exchange: exchange} = result.exports
+      %{exchange:       exchange,
+        response_queue: response_queue,
+        request_queue:  request_queue} = result.exports
 
-      {:ok, queue, exchange}
+      {:ok, request_queue, response_queue, exchange}
     end
   end
 end
