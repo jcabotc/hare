@@ -72,11 +72,21 @@ defmodule Hare.RPC.ServerTest do
 
     reply   = "received: #{payload}"
     headers = [correlation_id: 10]
-    assert [{:open_channel,    [_given_conn],                          {:ok, given_chan_1}},
-            {:declare_queue,   [given_chan_1, "foo", [no_ack: true]],  {:ok, _info}},
-            {:consume,         [given_chan_1, "foo", ^rpc_server, []], {:ok, _consumer_tag}},
-            {:monitor_channel, [given_chan_1],                         _ref},
-            {:publish,         [given_chan_1, "", ^reply, "response_queue", ^headers],  :ok}
+    assert [{:open_channel,
+              [_given_conn],
+              {:ok, given_chan_1}},
+            {:declare_queue,
+              [given_chan_1, "foo", [no_ack: true]],
+              {:ok, _info}},
+            {:consume,
+              [given_chan_1, "foo", ^rpc_server, []],
+              {:ok, _consumer_tag}},
+            {:monitor_channel,
+              [given_chan_1],
+              _ref},
+            {:publish,
+              [given_chan_1, "", ^reply, "response_queue", ^headers],
+              :ok}
            ] = Adapter.Backdoor.last_events(history, 5)
 
     Adapter.Backdoor.unlink(given_chan_1)
@@ -91,11 +101,21 @@ defmodule Hare.RPC.ServerTest do
 
     reply   = "received: #{payload}"
     headers = [correlation_id: 11]
-    assert [{:open_channel,    [_given_conn],                          {:ok, given_chan_2}},
-            {:declare_queue,   [given_chan_2, "foo", [no_ack: true]],  {:ok, _info}},
-            {:consume,         [given_chan_2, "foo", ^rpc_server, []], {:ok, _consumer_tag}},
-            {:monitor_channel, [given_chan_2],                         _ref},
-            {:publish,         [given_chan_2, "", ^reply, "response_queue", ^headers],  :ok}
+    assert [{:open_channel,
+              [_given_conn],
+              {:ok, given_chan_2}},
+            {:declare_queue,
+              [given_chan_2, "foo", [no_ack: true]],
+              {:ok, _info}},
+            {:consume,
+              [given_chan_2, "foo", ^rpc_server, []],
+              {:ok, _consumer_tag}},
+            {:monitor_channel,
+              [given_chan_2],
+              _ref},
+            {:publish,
+              [given_chan_2, "", ^reply, "response_queue", ^headers],
+              :ok}
            ] = Adapter.Backdoor.last_events(history, 5)
 
     assert given_chan_1 != given_chan_2
