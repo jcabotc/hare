@@ -61,7 +61,7 @@ defmodule Hare.RPC.Client do
     Connection.start_link(__MODULE__, args, opts)
   end
 
-  def request(client, payload, opts),
+  def request(client, payload, opts \\ []),
     do: Connection.call(client, {:request, payload, opts})
 
   def init({mod, conn, config, context, initial}) do
