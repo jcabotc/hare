@@ -9,6 +9,9 @@ defmodule Hare.Core.Conn do
   def open_channel(conn),
     do: Connection.call(conn, :open_channel)
 
+  def given_conn(conn),
+    do: Connection.call(conn, :given_conn)
+
   def stop(conn, reason \\ :normal),
     do: Connection.call(conn, {:close, reason})
 
@@ -36,6 +39,9 @@ defmodule Hare.Core.Conn do
   end
   def handle_call({:close, reason}, _from, state) do
     {:disconnect, reason, :ok, state}
+  end
+  def handle_call(:given_conn, _from, state) do
+    {:reply, State.given_conn(state), state}
   end
 
   def handle_info({:DOWN, ref, _, _, _reason}, state) do

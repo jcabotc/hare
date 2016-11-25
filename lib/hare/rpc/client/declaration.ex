@@ -11,9 +11,13 @@ defmodule Hare.RPC.Client.Declaration do
                           opts:      [auto_delete: true, exclusive: true]]}
 
   def parse(config, context) do
-    with {:ok, steps} <- steps(config),
+    with true         <- Keyword.keyword?(config),
+         {:ok, steps} <- steps(config),
          :ok          <- context.validate(steps) do
       {:ok, %Declaration{steps: steps, context: context}}
+    else
+      false -> {:error, :not_keyword_list}
+      error -> error
     end
   end
 

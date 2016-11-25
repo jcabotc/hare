@@ -73,7 +73,7 @@ defmodule Hare.RPC.ClientTest do
     request = Task.async fn ->
       TestClient.request(rpc_client, payload, opts)
     end
-    assert nil == Task.yield(request, 15)
+    assert nil == Task.yield(request, 30)
 
     assert [{:open_channel,
               [_given_conn],

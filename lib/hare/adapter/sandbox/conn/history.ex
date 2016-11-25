@@ -25,7 +25,7 @@ defmodule Hare.Adapter.Sandbox.Conn.History do
     Agent.get(history, &hd/1)
   end
 
-  def last_events(nil, count) do
+  def last_events(nil, _count) do
     :no_history_given
   end
   def last_events(history, count) do

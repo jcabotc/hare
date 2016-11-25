@@ -31,7 +31,7 @@ defmodule Hare.Context.Result do
   defp add(step, %{steps: steps} = result) do
     %{result | steps: [step | steps]}
   end
-  defp add(step, %{steps: steps, exports: exports} = result, new_exports) do
+  defp add(step, %{steps: steps} = result, new_exports) do
     %{result | steps: [step | steps], exports: new_exports}
   end
 end

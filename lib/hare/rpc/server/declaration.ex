@@ -7,9 +7,13 @@ defmodule Hare.RPC.Server.Declaration do
                     export_as: :exchange]}
 
   def parse(config, context) do
-    with {:ok, steps} <- steps(config),
+    with true         <- Keyword.keyword?(config),
+         {:ok, steps} <- steps(config),
          :ok          <- context.validate(steps) do
       {:ok, %Declaration{steps: steps, context: context}}
+    else
+      false -> {:error, :not_keyword_list}
+      error -> error
     end
   end
 

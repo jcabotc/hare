@@ -25,6 +25,10 @@ defmodule Hare.Core.Conn.State.Bridge do
   def open_channel(%Bridge{}),
     do: :not_connected
 
+  def given_conn(%Bridge{given: given}) do
+    given
+  end
+
   def disconnect(%Bridge{adapter: adapter, given: given, status: :connected} = bridge) do
     adapter.close_connection(given)
     set_not_connected(bridge)

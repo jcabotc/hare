@@ -42,7 +42,7 @@ defmodule Hare.Adapter.Sandbox.Conn do
 
   defp new(config) do
     {:ok, pid}      = Pid.start_link
-    history         = Keyword.get(config, :history, nil)
+    history         = get_or_create_history(config)
     on_channel_open = Keyword.get(config, :on_channel_open, nil)
     messages        = Keyword.get(config, :messages, [])
 
@@ -50,5 +50,12 @@ defmodule Hare.Adapter.Sandbox.Conn do
           history:         history,
           on_channel_open: on_channel_open,
           messages:        messages}
+  end
+
+  defp get_or_create_history(config) do
+    case Keyword.fetch(config, :history) do
+      {:ok, history} -> history
+      :error         -> History.start_link |> elem(1)
+    end
   end
 end

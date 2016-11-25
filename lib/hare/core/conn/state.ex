@@ -21,6 +21,9 @@ defmodule Hare.Core.Conn.State do
   def open_channel(%State{bridge: bridge} = state, client),
     do: Bridge.open_channel(bridge) |> handle_open_channel(state, client)
 
+  def given_conn(%State{bridge: bridge}),
+    do: Bridge.given_conn(bridge)
+
   def disconnect(%State{bridge: bridge}),
     do: Bridge.disconnect(bridge)
 
