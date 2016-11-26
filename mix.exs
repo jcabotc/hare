@@ -15,6 +15,8 @@ defmodule Hare.Mixfile do
   end
 
   defp deps do
-    [{:connection, "~> 1.0"}]
+    [{:amqp_client, git: "https://github.com/dsrosario/amqp_client.git", branch: "erlang_otp_19", override: true, optional: true},
+     {:amqp, "~> 0.1.4", optional: true},
+     {:connection, "~> 1.0"}]
   end
 end

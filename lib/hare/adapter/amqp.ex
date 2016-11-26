@@ -19,7 +19,7 @@ if Code.ensure_loaded?(AMQP) do
       Process.monitor(pid)
     end
 
-    def disconnect(%Connection{} = conn) do
+    def close_connection(%Connection{} = conn) do
       Connection.close(conn)
       :ok
     end
@@ -30,15 +30,15 @@ if Code.ensure_loaded?(AMQP) do
       Channel.open(conn)
     end
 
-    def monitor_channel(%Channel{pid: pid} = chan) do
+    def monitor_channel(%Channel{pid: pid}) do
       Process.monitor(pid)
     end
 
-    def link_channel(%Channel{pid: pid} = chan) do
+    def link_channel(%Channel{pid: pid}) do
       Process.link(pid)
     end
 
-    def unlink_channel(%Channel{pid: pid} = chan) do
+    def unlink_channel(%Channel{pid: pid}) do
       Process.unlink(pid)
     end
 
@@ -103,11 +103,11 @@ if Code.ensure_loaded?(AMQP) do
       Basic.consume(chan, queue, pid, opts)
     end
 
-    def handle({:basic_consume_ok, _meta}),
+    def handle({:basic_consume_ok, meta}),
       do: {:consume_ok, meta}
     def handle({:basic_deliver, payload, meta}),
       do: {:deliver, payload, meta}
-    def handle({:basic_cancel, meta}),
+    def handle({:basic_cancel_ok, meta}),
       do: {:cancel_ok, meta}
     def handle(_message),
       do: :unknown
