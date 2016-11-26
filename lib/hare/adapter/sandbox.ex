@@ -72,7 +72,7 @@ defmodule Hare.Adapter.Sandbox do
   end
 
   def delete_queue(chan, queue, opts) do
-    register(chan, {:delete_queue, [chan, queue, opts], :ok})
+    register(chan, {:delete_queue, [chan, queue, opts], {:ok, %{}}})
   end
 
   def bind(chan, queue, exchange, opts) do

@@ -30,10 +30,10 @@ defmodule Hare.Core.QueueTest do
             [_given, "foo", []],
             {:ok, ^info}} = Adapter.Backdoor.last_event(history)
 
-    assert :ok == Queue.delete(queue)
+    assert {:ok, info} = Queue.delete(queue)
     assert {:delete_queue,
             [_given, "foo", []],
-            :ok} = Adapter.Backdoor.last_event(history)
+            {:ok, ^info}} = Adapter.Backdoor.last_event(history)
   end
 
   test "declare/1 and declare/2 with server named queue" do

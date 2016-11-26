@@ -59,7 +59,7 @@ defmodule Hare.Adapter do
               {:ok, queue, info :: term} | {:error, term}
 
   @callback delete_queue(chan, queue, opts) ::
-              :ok
+              {:ok, info :: term}
 
   @callback bind(chan, queue, exchange, opts) ::
               :ok

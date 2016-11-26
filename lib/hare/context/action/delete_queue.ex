@@ -22,8 +22,8 @@ defmodule Hare.Context.Action.DeleteQueue do
     with {:ok, queue} <- get_queue(chan, config, exports) do
       opts = Keyword.get(config, :opts, @default_opts)
 
-      with :ok <- Queue.delete(queue, opts) do
-        handle_exports(queue, exports, config)
+      with {:ok, info} <- Queue.delete(queue, opts) do
+        handle_exports(queue, info, exports, config)
       end
     end
   end
@@ -35,12 +35,12 @@ defmodule Hare.Context.Action.DeleteQueue do
     end
   end
 
-  defp handle_exports(queue, exports, config) do
+  defp handle_exports(queue, info, exports, config) do
     case Keyword.fetch(config, :export_as) do
       {:ok, export_tag} ->
-        {:ok, nil, Map.put(exports, export_tag, queue)}
+        {:ok, info, Map.put(exports, export_tag, queue)}
       :error ->
-        {:ok, nil}
+        {:ok, info}
     end
   end
 end

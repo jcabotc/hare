@@ -33,16 +33,16 @@ defmodule Hare.Context.Action.DeleteQueueTest do
     chan = Hare.Core.Chan.new(given_chan, Adapter)
 
     config = [name: "foo", opts: [no_wait: true]]
-    assert {:ok, nil} = DeleteQueue.run(chan, config, %{})
+    assert {:ok, info} = DeleteQueue.run(chan, config, %{})
 
     args = [given_chan, "foo", [no_wait: true]]
-    assert {:delete_queue, args, :ok} == Adapter.Backdoor.last_event(history)
+    assert {:delete_queue, args, {:ok, info}} == Adapter.Backdoor.last_event(history)
 
     minimal = [name: "foo", export_as: :foo]
-    assert {:ok, nil, %{foo: queue}} = DeleteQueue.run(chan, minimal, %{})
+    assert {:ok, info, %{foo: queue}} = DeleteQueue.run(chan, minimal, %{})
     assert %Queue{chan: chan, name: "foo"} == queue
 
     args = [given_chan, "foo", []]
-    assert {:delete_queue, args, :ok} == Adapter.Backdoor.last_event(history)
+    assert {:delete_queue, args, {:ok, info}} == Adapter.Backdoor.last_event(history)
   end
 end
