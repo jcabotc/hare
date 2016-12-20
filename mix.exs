@@ -7,6 +7,7 @@ defmodule Hare.Mixfile do
      elixir: "~> 1.3",
      build_embedded: Mix.env == :prod,
      start_permanent: Mix.env == :prod,
+     description: "Some abstractions to interact with a AMQP broker",
      deps: deps()]
   end
 
