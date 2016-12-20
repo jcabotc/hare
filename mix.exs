@@ -23,8 +23,8 @@ defmodule Hare.Mixfile do
   end
 
   defp package do
-    %{mantainers: ["Jaime Cabot"],
-      licenses: ["Apache 2"],
-      links: %{"GitHub" => "https://github.com/jcabotc/hare"}}
+    [mantainers: ["Jaime Cabot"],
+     licenses: ["Apache 2"],
+     links: %{"GitHub" => "https://github.com/jcabotc/hare"}]
   end
 end
