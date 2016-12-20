@@ -1,6 +1,6 @@
 # Hare
 
-**TODO: Add description**
+Tools and abstractions to manage AMQP stuff.
 
 ## Installation
 
@@ -10,7 +10,7 @@ If [available in Hex](https://hex.pm/docs/publish), the package can be installed
 
     ```elixir
     def deps do
-      [{:hare, "~> 0.1.0"}]
+      [{:hare, "~> 0.1.1"}]
     end
     ```
 
