@@ -3,7 +3,7 @@ defmodule Hare.RPC.Client.State do
 
   defstruct [:conn, :declaration,
              :mod, :given,
-             :chan, :ref, :req_queue, :resp_queue, :exchange,
+             :chan, :ref, :resp_queue, :req_exchange,
              :status, :waiting]
 
   def new(conn, declaration, mod, given) do
@@ -15,22 +15,20 @@ defmodule Hare.RPC.Client.State do
            status:      :not_connected}
   end
 
-  def connected(%State{} = state, chan, ref, req_queue, resp_queue, exchange) do
-    %{state | chan:       chan,
-              ref:        ref,
-              req_queue:  req_queue,
-              resp_queue: resp_queue,
-              exchange:   exchange,
-              status:     :connected}
+  def connected(%State{} = state, chan, ref, resp_queue, req_exchange) do
+    %{state | chan:         chan,
+              ref:          ref,
+              resp_queue:   resp_queue,
+              req_exchange: req_exchange,
+              status:       :connected}
   end
 
   def chan_down(%State{} = state) do
-    %{state | chan:       nil,
-              ref:        nil,
-              req_queue:  nil,
-              resp_queue: nil,
-              exchange:   nil,
-              status:     :not_connected}
+    %{state | chan:         nil,
+              ref:          nil,
+              resp_queue:   nil,
+              req_exchange: nil,
+              status:       :not_connected}
   end
 
   def set(%State{} = state, given) do

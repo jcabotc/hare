@@ -75,12 +75,12 @@ defmodule Hare.RPC.Client do
   end
 
   def connect(_info, %{conn: conn, declaration: declaration} = state) do
-    with {:ok, chan}                            <- Chan.open(conn),
-         {:ok, req_queue, resp_queue, exchange} <- Declaration.run(declaration, chan),
-         {:ok, new_resp_queue}                  <- Queue.consume(resp_queue) do
+    with {:ok, chan}                     <- Chan.open(conn),
+         {:ok, resp_queue, req_exchange} <- Declaration.run(declaration, chan),
+         {:ok, new_resp_queue}           <- Queue.consume(resp_queue) do
       ref = Chan.monitor(chan)
 
-      {:ok, State.connected(state, chan, ref, req_queue, new_resp_queue, exchange)}
+      {:ok, State.connected(state, chan, ref, new_resp_queue, req_exchange)}
     else
       {:error, reason} -> {:stop, reason}
     end
@@ -171,12 +171,12 @@ defmodule Hare.RPC.Client do
     end
   end
 
-  defp perform(payload, opts, %{exchange: exchange, req_queue: req_queue, resp_queue: resp_queue}) do
+  defp perform(payload, opts, %{req_exchange: req_exchange, resp_queue: resp_queue}) do
     correlation_id = generate_correlation_id
     new_opts = Keyword.merge(opts, reply_to:       resp_queue.name,
                                    correlation_id: correlation_id)
 
-    Exchange.publish(exchange, payload, req_queue.name, new_opts)
+    Exchange.publish(req_exchange, payload, "", new_opts)
     correlation_id
   end
 
@@ -186,10 +186,9 @@ defmodule Hare.RPC.Client do
     |> Base.encode64
   end
 
-  defp complete(meta, %{req_queue: req_queue, resp_queue: resp_queue, exchange: exchange}) do
+  defp complete(meta, %{resp_queue: resp_queue, req_exchange: req_exchange}) do
     meta
-    |> Map.put(:exchange, exchange)
-    |> Map.put(:req_queue, req_queue)
+    |> Map.put(:req_exchange, req_exchange)
     |> Map.put(:resp_queue, resp_queue)
   end
 end
