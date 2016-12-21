@@ -10,17 +10,17 @@ defmodule Hare.RPC.ClientTest do
     def start_link(conn, config, pid),
       do: Client.start_link(__MODULE__, conn, config, pid)
 
-    def request(client, payload, opts),
-      do: Client.request(client, payload, opts)
+    def request(client, payload, routing_key, opts),
+      do: Client.request(client, payload, routing_key, opts)
 
     def handle_ready(meta, pid) do
       send(pid, {:ready, meta})
       {:noreply, pid}
     end
 
-    def handle_request(payload, opts, pid) do
+    def handle_request(payload, routing_key, opts, pid) do
       case Keyword.fetch(opts, :respond) do
-        {:ok, "modify_request"}      -> {:ok, "foo - #{payload}", [bar: "baz"], pid}
+        {:ok, "modify_request"}      -> {:ok, "foo - #{payload}", routing_key, [bar: "baz"], pid}
         {:ok, "reply: " <> response} -> {:reply, response, pid}
         {:ok, "stop: " <> response}  -> {:stop, "a_reason", response, pid}
         _otherwise                   -> {:ok, pid}
@@ -67,10 +67,12 @@ defmodule Hare.RPC.ClientTest do
     send(rpc_client, :some_message)
     assert_receive {:info, :some_message}
 
-    payload = "the request"
-    opts    = []
+    payload     = "the request"
+    routing_key = "the key"
+    opts        = []
+
     request = Task.async fn ->
-      TestClient.request(rpc_client, payload, opts)
+      TestClient.request(rpc_client, payload, routing_key, opts)
     end
     assert nil == Task.yield(request, 30)
 
@@ -90,7 +92,7 @@ defmodule Hare.RPC.ClientTest do
               [given_chan_1],
               _ref},
             {:publish,
-              [given_chan_1, "foo", ^payload, "", opts],
+              [given_chan_1, "foo", ^payload, ^routing_key, opts],
               :ok}
            ] = Adapter.Backdoor.last_events(history, 6)
 
