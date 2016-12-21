@@ -1,7 +1,8 @@
 defmodule Hare.RPC.Client do
-  @type payload :: binary
-  @type meta    :: map
-  @type state   :: term
+  @type payload     :: binary
+  @type routing_key :: binary
+  @type meta        :: map
+  @type state       :: term
 
   @callback init(initial :: term) ::
               GenServer.on_start
@@ -10,9 +11,9 @@ defmodule Hare.RPC.Client do
               {:noreply, state} |
               {:stop, reason :: term, state}
 
-  @callback handle_request(payload, opts :: term, state) ::
+  @callback handle_request(payload, routing_key, opts :: term, state) ::
               {:ok, state} |
-              {:ok, payload, opts :: term, state} |
+              {:ok, payload, routing_key, opts :: term, state} |
               {:reply, response :: term, state} |
               {:stop, reason :: term, response :: binary, state}
 
@@ -25,7 +26,7 @@ defmodule Hare.RPC.Client do
 
   defmacro __using__(_opts \\ []) do
     quote location: :keep do
-      @behaviour Hare.RPC.Server
+      @behaviour Hare.RPC.Client
 
       def init(initial),
         do: {:ok, initial}
@@ -33,7 +34,7 @@ defmodule Hare.RPC.Client do
       def handle_ready(_meta, state),
         do: {:noreply, state}
 
-      def handle_request(_payload, _meta, state),
+      def handle_request(_payload, _routing_key, _meta, state),
         do: {:ok, state}
 
       def handle_info(_message, state),
@@ -43,7 +44,7 @@ defmodule Hare.RPC.Client do
         do: :ok
 
       defoverridable [init: 1, terminate: 2,
-                      handle_ready: 2, handle_request: 3, handle_info: 2]
+                      handle_ready: 2, handle_request: 4, handle_info: 2]
     end
   end
 
@@ -61,8 +62,8 @@ defmodule Hare.RPC.Client do
     Connection.start_link(__MODULE__, args, opts)
   end
 
-  def request(client, payload, opts \\ []),
-    do: Connection.call(client, {:request, payload, opts})
+  def request(client, payload, routing_key \\ "", opts \\ []),
+    do: Connection.call(client, {:request, payload, routing_key, opts})
 
   def init({mod, conn, config, context, initial}) do
     with {:ok, declaration} <- Declaration.parse(config, context),
@@ -75,12 +76,12 @@ defmodule Hare.RPC.Client do
   end
 
   def connect(_info, %{conn: conn, declaration: declaration} = state) do
-    with {:ok, chan}                            <- Chan.open(conn),
-         {:ok, req_queue, resp_queue, exchange} <- Declaration.run(declaration, chan),
-         {:ok, new_resp_queue}                  <- Queue.consume(resp_queue) do
+    with {:ok, chan}                     <- Chan.open(conn),
+         {:ok, resp_queue, req_exchange} <- Declaration.run(declaration, chan),
+         {:ok, new_resp_queue}           <- Queue.consume(resp_queue) do
       ref = Chan.monitor(chan)
 
-      {:ok, State.connected(state, chan, ref, req_queue, new_resp_queue, exchange)}
+      {:ok, State.connected(state, chan, ref, new_resp_queue, req_exchange)}
     else
       {:error, reason} -> {:stop, reason}
     end
@@ -89,14 +90,14 @@ defmodule Hare.RPC.Client do
   def disconnect(_info, state),
     do: {:stop, :normal, state}
 
-  def handle_call({:request, payload, opts}, from, %{mod: mod, given: given} = state) do
-    case mod.handle_request(payload, opts, given) do
+  def handle_call({:request, payload, routing_key, opts}, from, %{mod: mod, given: given} = state) do
+    case mod.handle_request(payload, routing_key, opts, given) do
       {:ok, new_given} ->
-        correlation_id = perform(payload, opts, state)
+        correlation_id = perform(payload, routing_key, opts, state)
         {:noreply, State.set(state, new_given, correlation_id, from)}
 
       {:ok, new_payload, new_opts, new_given} ->
-        correlation_id = perform(new_payload, new_opts, state)
+        correlation_id = perform(new_payload, routing_key, new_opts, state)
         {:noreply, State.set(state, new_given, correlation_id, from)}
 
       {:reply, response, new_given} ->
@@ -171,12 +172,12 @@ defmodule Hare.RPC.Client do
     end
   end
 
-  defp perform(payload, opts, %{exchange: exchange, req_queue: req_queue, resp_queue: resp_queue}) do
+  defp perform(payload, routing_key, opts, %{req_exchange: req_exchange, resp_queue: resp_queue}) do
     correlation_id = generate_correlation_id
     new_opts = Keyword.merge(opts, reply_to:       resp_queue.name,
                                    correlation_id: correlation_id)
 
-    Exchange.publish(exchange, payload, req_queue.name, new_opts)
+    Exchange.publish(req_exchange, payload, routing_key, new_opts)
     correlation_id
   end
 
@@ -186,10 +187,9 @@ defmodule Hare.RPC.Client do
     |> Base.encode64
   end
 
-  defp complete(meta, %{req_queue: req_queue, resp_queue: resp_queue, exchange: exchange}) do
+  defp complete(meta, %{resp_queue: resp_queue, req_exchange: req_exchange}) do
     meta
-    |> Map.put(:exchange, exchange)
-    |> Map.put(:req_queue, req_queue)
+    |> Map.put(:req_exchange, req_exchange)
     |> Map.put(:resp_queue, resp_queue)
   end
 end

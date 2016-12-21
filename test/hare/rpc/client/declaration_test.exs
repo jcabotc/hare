@@ -8,9 +8,8 @@ defmodule Hare.RPC.Client.DeclarationTest do
       do: :ok
 
     def run(chan, _steps, _opts) do
-      exports = %{request_queue:  {:fake_request_queue, chan},
-                  response_queue: {:fake_response_queue, chan},
-                  exchange:       {:fake_exchange, chan}}
+      exports = %{response_queue:   {:fake_response_queue, chan},
+                  request_exchange: {:fake_request_exchange, chan}}
 
       {:ok, %{exports: exports}}
     end
@@ -21,42 +20,42 @@ defmodule Hare.RPC.Client.DeclarationTest do
   end
 
   test "parse/2 with valid context" do
-    config = [queue: [name: "foo",
-                      opts: [durable: true]]]
+    config = [exchange: [name: "foo",
+                         type: :fanout,
+                         opts: [durable: true]]]
 
     assert {:ok, declaration} = Declaration.parse(config, ValidContext)
 
     assert declaration.context == ValidContext
-    assert declaration.steps == [default_exchange: [
-                                   export_as: :exchange],
-                                 declare_server_named_queue: [
+    assert declaration.steps == [declare_server_named_queue: [
                                    export_as: :response_queue,
                                    opts:      [auto_delete: true, exclusive: true]],
-                                 declare_queue: [
-                                   export_as: :request_queue,
-                                   name:      "foo",
-                                   opts:      [durable: true]]]
+                                 declare_exchange: [
+                                   export_as: :request_exchange,
+                                   name: "foo",
+                                   type: :fanout,
+                                   opts: [durable: true]]]
 
     chan   = :fake_chan
     result = Declaration.run(declaration, chan)
 
-    assert {:ok, request_queue, response_queue, exchange} = result
-    assert {:fake_request_queue, ^chan} = request_queue
-    assert {:fake_response_queue, ^chan} = response_queue
-    assert {:fake_exchange, ^chan} = exchange
+    assert {:ok, response_queue, request_exchange} = result
+    assert {:fake_request_exchange, ^chan} = request_exchange
+    assert {:fake_response_queue, ^chan}   = response_queue
   end
 
-  test "parse/2 on :queue config error" do
+  test "parse/2 on :exchange config error" do
     config = []
-    assert {:error, {:not_present, :queue}} == Declaration.parse(config, ValidContext)
+    assert {:error, {:not_present, :exchange}} == Declaration.parse(config, ValidContext)
 
-    config = [queue: "foo"]
-    assert {:error, {:not_keyword_list, :queue}} == Declaration.parse(config, ValidContext)
+    config = [exchange: "foo"]
+    assert {:error, {:not_keyword_list, :exchange}} == Declaration.parse(config, ValidContext)
   end
 
   test "parse/2 with invalid context" do
-    config = [queue: [name: "foo",
-                      opts: [durable: true]]]
+    config = [exchange: [name: "foo",
+                         type: :fanout,
+                         opts: [durable: true]]]
 
     assert {:error, :invalid} == Declaration.parse(config, InvalidContext)
   end

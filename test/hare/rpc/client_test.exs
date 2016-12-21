@@ -10,17 +10,17 @@ defmodule Hare.RPC.ClientTest do
     def start_link(conn, config, pid),
       do: Client.start_link(__MODULE__, conn, config, pid)
 
-    def request(client, payload, opts),
-      do: Client.request(client, payload, opts)
+    def request(client, payload, routing_key, opts),
+      do: Client.request(client, payload, routing_key, opts)
 
     def handle_ready(meta, pid) do
       send(pid, {:ready, meta})
       {:noreply, pid}
     end
 
-    def handle_request(payload, opts, pid) do
+    def handle_request(payload, routing_key, opts, pid) do
       case Keyword.fetch(opts, :respond) do
-        {:ok, "modify_request"}      -> {:ok, "foo - #{payload}", [bar: "baz"], pid}
+        {:ok, "modify_request"}      -> {:ok, "foo - #{payload}", routing_key, [bar: "baz"], pid}
         {:ok, "reply: " <> response} -> {:reply, response, pid}
         {:ok, "stop: " <> response}  -> {:stop, "a_reason", response, pid}
         _otherwise                   -> {:ok, pid}
@@ -50,28 +50,29 @@ defmodule Hare.RPC.ClientTest do
   test "echo server" do
     {history, conn} = build_conn
 
-    config = [queue: [name: "foo",
-                      opts: [durable: true]]]
+    config = [exchange: [name: "foo",
+                         type: :fanout,
+                         opts: [durable: true]]]
 
     {:ok, rpc_client} = TestClient.start_link(conn, config, self)
 
     send(rpc_client, {:consume_ok, %{bar: "baz"}})
-    assert_receive {:ready, %{bar:        "baz",
-                              req_queue:  req_queue,
-                              resp_queue: resp_queue,
-                              exchange:   exchange}}
+    assert_receive {:ready, %{bar:          "baz",
+                              resp_queue:   resp_queue,
+                              req_exchange: req_exchange}}
 
-    assert %{chan: chan, name: "foo"} = req_queue
-    assert %{chan: ^chan, name: resp_queue_name} = resp_queue
-    assert %{chan: ^chan, name: ""} = exchange
+    assert %{chan: chan,  name: resp_queue_name} = resp_queue
+    assert %{chan: ^chan, name: "foo"} = req_exchange
 
     send(rpc_client, :some_message)
     assert_receive {:info, :some_message}
 
-    payload = "the request"
-    opts    = []
+    payload     = "the request"
+    routing_key = "the key"
+    opts        = []
+
     request = Task.async fn ->
-      TestClient.request(rpc_client, payload, opts)
+      TestClient.request(rpc_client, payload, routing_key, opts)
     end
     assert nil == Task.yield(request, 30)
 
@@ -81,9 +82,9 @@ defmodule Hare.RPC.ClientTest do
             {:declare_server_named_queue,
               [given_chan_1, [auto_delete: true, exclusive: true]],
               {:ok, ^resp_queue_name, _info_2}},
-            {:declare_queue,
-              [given_chan_1, "foo", [durable: true]],
-              {:ok, _info_1}},
+            {:declare_exchange,
+              [given_chan_1, "foo", :fanout, [durable: true]],
+              :ok},
             {:consume,
               [given_chan_1, ^resp_queue_name, ^rpc_client, []],
               {:ok, _consumer_tag}},
@@ -91,7 +92,7 @@ defmodule Hare.RPC.ClientTest do
               [given_chan_1],
               _ref},
             {:publish,
-              [given_chan_1, "", ^payload, "foo", opts],
+              [given_chan_1, "foo", ^payload, ^routing_key, opts],
               :ok}
            ] = Adapter.Backdoor.last_events(history, 6)
 

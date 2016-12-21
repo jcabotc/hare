@@ -3,9 +3,6 @@ defmodule Hare.RPC.Client.Declaration do
 
   defstruct [:steps, :context]
 
-  @exchange_step {:default_exchange, [
-                    export_as: :exchange]}
-
   @response_queue_step {:declare_server_named_queue, [
                           export_as: :response_queue,
                           opts:      [auto_delete: true, exclusive: true]]}
@@ -22,28 +19,26 @@ defmodule Hare.RPC.Client.Declaration do
   end
 
   defp steps(config) do
-    with {:ok, queue_config} <- Keyword.fetch(config, :queue),
-         true                <- Keyword.keyword?(queue_config) do
-      {:ok, build_steps(queue_config)}
+    with {:ok, exchange_config} <- Keyword.fetch(config, :exchange),
+         true                   <- Keyword.keyword?(exchange_config) do
+      {:ok, build_steps(exchange_config)}
     else
-      :error -> {:error, {:not_present, :queue}}
-      false  -> {:error, {:not_keyword_list, :queue}}
+      :error -> {:error, {:not_present, :exchange}}
+      false  -> {:error, {:not_keyword_list, :exchange}}
     end
   end
 
-  defp build_steps(queue_config) do
-    [@exchange_step,
-     @response_queue_step,
-     declare_queue: [{:export_as, :request_queue} | queue_config]]
+  defp build_steps(exchange_config) do
+    [@response_queue_step,
+     declare_exchange: [{:export_as, :request_exchange} | exchange_config]]
   end
 
   def run(%Declaration{steps: steps, context: context}, chan) do
     with {:ok, result} <- context.run(chan, steps, validate: false) do
-      %{exchange:       exchange,
-        response_queue: response_queue,
-        request_queue:  request_queue} = result.exports
+      %{request_exchange: request_exchange,
+        response_queue:   response_queue} = result.exports
 
-      {:ok, request_queue, response_queue, exchange}
+      {:ok, response_queue, request_exchange}
     end
   end
 end
