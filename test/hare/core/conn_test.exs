@@ -21,6 +21,7 @@ defmodule Hare.Core.ConnTest do
     assert %Chan{given: given_chan, adapter: Adapter} = channel
 
     assert :ok = Conn.stop(pid)
+    Process.sleep(5)
 
     events = Adapter.Backdoor.events(history)
 
