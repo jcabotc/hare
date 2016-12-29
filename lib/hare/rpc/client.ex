@@ -50,7 +50,7 @@ defmodule Hare.RPC.Client do
       def terminate(_reason, _state),
         do: :ok
 
-      defoverridable [init: 1, terminate: 2,
+      defoverridable [init: 1, terminate: 2, connected: 2,
                       handle_ready: 2, handle_request: 4, handle_info: 2]
     end
   end
