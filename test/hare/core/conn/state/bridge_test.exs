@@ -1,6 +1,7 @@
 defmodule Hare.Core.Conn.State.BridgeTest do
   use ExUnit.Case, async: true
 
+  alias Hare.Core.Chan
   alias Hare.Core.Conn.State.Bridge
   alias Hare.Adapter.Sandbox, as: Adapter
 
@@ -26,7 +27,7 @@ defmodule Hare.Core.Conn.State.BridgeTest do
     assert {:ok, bridge} = Bridge.connect(bridge)
     assert %{status: :connected, given: given_1, ref: ref_1} = bridge
 
-    assert {:ok, given_chan} = Bridge.open_channel(bridge)
+    assert {:ok, %Chan{given: given_chan}} = Bridge.open_channel(bridge)
 
     Adapter.Backdoor.unlink(given_chan)
     Adapter.Backdoor.unlink(bridge.given)
