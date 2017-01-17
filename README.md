@@ -10,7 +10,7 @@ If [available in Hex](https://hex.pm/docs/publish), the package can be installed
 
     ```elixir
     def deps do
-      [{:hare, "~> 0.1.6"}]
+      [{:hare, "~> 0.1.7"}]
     end
     ```
 
