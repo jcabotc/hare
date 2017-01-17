@@ -7,6 +7,10 @@ defmodule Hare.RPC.Client do
   @callback init(initial :: term) ::
               GenServer.on_start
 
+  @callback connected(meta, state) ::
+              {:noreply, state} |
+              {:stop, reason :: term, state}
+
   @callback handle_ready(meta, state) ::
               {:noreply, state} |
               {:stop, reason :: term, state}
@@ -31,6 +35,9 @@ defmodule Hare.RPC.Client do
       def init(initial),
         do: {:ok, initial}
 
+      def connected(_meta, state),
+        do: {:noreply, state}
+
       def handle_ready(_meta, state),
         do: {:noreply, state}
 
@@ -43,7 +50,7 @@ defmodule Hare.RPC.Client do
       def terminate(_reason, _state),
         do: :ok
 
-      defoverridable [init: 1, terminate: 2,
+      defoverridable [init: 1, terminate: 2, connected: 2,
                       handle_ready: 2, handle_request: 4, handle_info: 2]
     end
   end
@@ -79,11 +86,22 @@ defmodule Hare.RPC.Client do
     with {:ok, chan}                     <- Chan.open(conn),
          {:ok, resp_queue, req_exchange} <- Declaration.run(declaration, chan),
          {:ok, new_resp_queue}           <- Queue.consume(resp_queue) do
-      ref = Chan.monitor(chan)
-
-      {:ok, State.connected(state, chan, ref, new_resp_queue, req_exchange)}
+      handle_connected(state, chan, new_resp_queue, req_exchange)
     else
       {:error, reason} -> {:stop, reason}
+    end
+  end
+
+  defp handle_connected(%{mod: mod, given: given} = state, chan, resp_queue, req_exchange) do
+    ref  = Chan.monitor(chan)
+    meta = complete(%{}, state)
+
+    case mod.connected(meta, given) do
+      {:noreply, new_given} ->
+        {:ok, State.connected(state, chan, ref, resp_queue, req_exchange, new_given)}
+
+      {:stop, reason, new_given} ->
+        {:stop, reason, State.connected(state, chan, ref, resp_queue, req_exchange, new_given)}
     end
   end
 
