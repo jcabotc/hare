@@ -15,12 +15,13 @@ defmodule Hare.RPC.Client.State do
            status:      :not_connected}
   end
 
-  def connected(%State{} = state, chan, ref, resp_queue, req_exchange) do
+  def connected(%State{} = state, chan, ref, resp_queue, req_exchange, new_given) do
     %{state | chan:         chan,
               ref:          ref,
               resp_queue:   resp_queue,
               req_exchange: req_exchange,
-              status:       :connected}
+              status:       :connected,
+              given:        new_given}
   end
 
   def chan_down(%State{} = state) do
