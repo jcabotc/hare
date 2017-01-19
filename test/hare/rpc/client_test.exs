@@ -86,7 +86,7 @@ defmodule Hare.RPC.ClientTest do
               [given_chan_1, "foo", :fanout, [durable: true]],
               :ok},
             {:consume,
-              [given_chan_1, ^resp_queue_name, ^rpc_client, []],
+              [given_chan_1, ^resp_queue_name, ^rpc_client, [no_ack: true]],
               {:ok, _consumer_tag}},
             {:monitor_channel,
               [given_chan_1],
