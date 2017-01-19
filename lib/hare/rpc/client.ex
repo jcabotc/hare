@@ -85,7 +85,7 @@ defmodule Hare.RPC.Client do
   def connect(_info, %{conn: conn, declaration: declaration} = state) do
     with {:ok, chan}                     <- Chan.open(conn),
          {:ok, resp_queue, req_exchange} <- Declaration.run(declaration, chan),
-         {:ok, new_resp_queue}           <- Queue.consume(resp_queue) do
+         {:ok, new_resp_queue}           <- Queue.consume(resp_queue, no_ack: true) do
       handle_connected(state, chan, new_resp_queue, req_exchange)
     else
       {:error, reason} -> {:stop, reason}
