@@ -37,14 +37,11 @@ defmodule Hare.Core.Conn.State do
     {:retry, interval, %{state | bridge: new_bridge}}
   end
 
-  defp handle_open_channel({:ok, given_chan}, %{bridge: bridge}, _client) do
-    {:ok, Chan.new(given_chan, bridge.adapter)}
-  end
   defp handle_open_channel(:not_connected, %{waiting: waiting} = state, client) do
     {:wait, %{state | waiting: Waiting.push(waiting, client)}}
   end
-  defp handle_open_channel({:error, _reason} = error, _state, _client) do
-    error
+  defp handle_open_channel(result, _state, _client) do
+    result
   end
 
   defp reply_waiting(clients, bridge, reply) do

@@ -1,5 +1,6 @@
 defmodule Hare.Core.Conn.State.Bridge do
   alias __MODULE__
+  alias Hare.Core.Chan
 
   defstruct [:adapter, :config,
              :backoff, :next_intervals,
@@ -21,7 +22,7 @@ defmodule Hare.Core.Conn.State.Bridge do
   end
 
   def open_channel(%Bridge{adapter: adapter, given: given, status: :connected}),
-    do: adapter.open_channel(given)
+    do: adapter.open_channel(given) |> handle_open_channel(adapter)
   def open_channel(%Bridge{}),
     do: :not_connected
 
@@ -48,6 +49,11 @@ defmodule Hare.Core.Conn.State.Bridge do
   defp handle_connect(error, bridge) do
     handle_connect(error, set_reconnecting(bridge))
   end
+
+  defp handle_open_channel({:ok, given_chan}, adapter),
+    do: {:ok, Chan.new(given_chan, adapter)}
+  defp handle_open_channel(error, _adapter),
+    do: error
 
   defp pop_interval(%{next_intervals: [last]} = bridge),
     do: {last, bridge}

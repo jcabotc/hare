@@ -50,7 +50,7 @@ defmodule Hare.Core.ConnTest do
     assert nil == Task.yield(task_1, 0)
     assert nil == Task.yield(task_2, 0)
 
-    {:ok, _channel} = Task.await(task_1)
-    {:ok, _channel} = Task.await(task_2)
+    {:ok, _channel = %Chan{}} = Task.await(task_1)
+    {:ok, _channel = %Chan{}} = Task.await(task_2)
   end
 end
