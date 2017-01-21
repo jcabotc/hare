@@ -14,11 +14,12 @@ defmodule Hare.RPC.Server.State do
            status:      :not_connected}
   end
 
-  def connected(%State{} = state, chan, ref, queue, exchange) do
+  def connected(%State{} = state, chan, ref, queue, exchange, given) do
     %{state | chan:     chan,
               ref:      ref,
               queue:    queue,
               exchange: exchange,
+              given:    given,
               status:   :connected}
   end
 
