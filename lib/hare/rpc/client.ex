@@ -57,14 +57,14 @@ defmodule Hare.RPC.Client do
 
   use Connection
 
-  alias __MODULE__.{Declaration, State}
+  alias __MODULE__.{Declaration, Runtime, State}
   alias Hare.Core.{Chan, Queue, Exchange}
 
   @context Hare.Context
 
   def start_link(mod, conn, config, initial, opts \\ []) do
     {context, opts} = Keyword.pop(opts, :context, @context)
-    args = {mod, conn, config, context, initial}
+    args = {mod, conn, config, context,  initial}
 
     Connection.start_link(__MODULE__, args, opts)
   end
@@ -73,9 +73,10 @@ defmodule Hare.RPC.Client do
     do: Connection.call(client, {:request, payload, routing_key, opts})
 
   def init({mod, conn, config, context, initial}) do
-    with {:ok, declaration} <- Declaration.parse(config, context),
-         {:ok, given}       <- mod.init(initial) do
-      {:connect, :init, State.new(conn, declaration, mod, given)}
+    with {:ok, declaration}  <- Declaration.parse(config, context),
+         {:ok, runtime_opts} <- Runtime.parse(config),
+         {:ok, given}        <- mod.init(initial) do
+      {:connect, :init, State.new(conn, declaration, runtime_opts, mod, given)}
     else
       {:error, reason} -> {:stop, {:config_error, reason, config}}
       other            -> other
@@ -112,6 +113,7 @@ defmodule Hare.RPC.Client do
     case mod.handle_request(payload, routing_key, opts, given) do
       {:ok, new_given} ->
         correlation_id = perform(payload, routing_key, opts, state)
+        set_request_timeout(correlation_id, state)
         {:noreply, State.set(state, new_given, correlation_id, from)}
 
       {:ok, new_payload, new_opts, new_given} ->
@@ -128,6 +130,16 @@ defmodule Hare.RPC.Client do
 
   def handle_info({:DOWN, ref, _, _, _reason}, %{status: :connected, ref: ref} = state) do
     {:connect, :down, State.chan_down(state)}
+  end
+  def handle_info({:request_timeout, correlation_id}, state) do
+    case State.pop_waiting(state, correlation_id) do
+      {:ok, from, new_state} ->
+        GenServer.reply(from, {:error, :timeout})
+        {:noreply, new_state}
+
+      :unknown ->
+        {:noreply, state}
+    end
   end
   def handle_info(message, %{status: :connected, resp_queue: queue} = state) do
     case Queue.handle(queue, message) do
@@ -172,7 +184,7 @@ defmodule Hare.RPC.Client do
   defp handle_response(payload, %{correlation_id: correlation_id}, state) do
     case State.pop_waiting(state, correlation_id) do
       {:ok, from, new_state} ->
-        GenServer.reply(from, payload)
+        GenServer.reply(from, {:ok, payload})
         {:noreply, new_state}
 
       :unknown ->
@@ -209,5 +221,10 @@ defmodule Hare.RPC.Client do
     meta
     |> Map.put(:req_exchange, req_exchange)
     |> Map.put(:resp_queue, resp_queue)
+  end
+
+  defp set_request_timeout(correlation_id, %{runtime_opts: %{timeout: timeout}}) do
+    if timeout != :infinity,
+      do: Process.send_after(self, {:request_timeout, correlation_id}, timeout)
   end
 end

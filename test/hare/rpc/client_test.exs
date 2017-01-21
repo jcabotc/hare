@@ -10,6 +10,8 @@ defmodule Hare.RPC.ClientTest do
     def start_link(conn, config, pid),
       do: Client.start_link(__MODULE__, conn, config, pid)
 
+    def request(client, payload),
+      do: Client.request(client, payload)
     def request(client, payload, routing_key, opts),
       do: Client.request(client, payload, routing_key, opts)
 
@@ -103,6 +105,25 @@ defmodule Hare.RPC.ClientTest do
     meta     = %{correlation_id: correlation_id}
     send(rpc_client, {:deliver, response, meta})
 
-    assert response == Task.await(request)
+    assert {:ok, response} == Task.await(request)
+  end
+
+  test "timeout" do
+    {_history, conn} = build_conn
+
+    config = [exchange: [name: "foo",
+                         type: :fanout,
+                         opts: [durable: true]],
+              timeout: 1]
+
+    {:ok, rpc_client} = TestClient.start_link(conn, config, self)
+
+    payload = "the request"
+    request = Task.async fn ->
+      TestClient.request(rpc_client, payload)
+    end
+
+    Process.sleep(5)
+    assert {:error, :timeout} == Task.await(request)
   end
 end
