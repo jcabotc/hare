@@ -17,7 +17,13 @@ defmodule Hare.ConsumerTest do
 
     def handle_message(payload, meta, pid) do
       send(pid, {:message, payload, meta})
-      {:noreply, pid}
+
+      case payload do
+        "ack" <> _rest    -> {:reply, :ack, pid}
+        "nack" <> _rest   -> {:reply, :nack, pid}
+        "reject" <> _rest -> {:reply, :reject, [requeue: true], pid}
+        _otherwise        -> {:noreply, pid}
+      end
     end
 
     def handle_info(message, pid) do
@@ -47,7 +53,7 @@ defmodule Hare.ConsumerTest do
                          type: :direct,
                          opts: [durable: true]],
               queue: [name: "bar",
-                      opts: [no_ack: true]],
+                      opts: []],
               bind: [routing_key: "baz"]]
 
     {:ok, rpc_server} = TestConsumer.start_link(conn, config, self)
@@ -62,10 +68,17 @@ defmodule Hare.ConsumerTest do
 
     payload = "some data"
     meta    = %{}
+
+    send(rpc_server, {:deliver, "ack - #{payload}", meta})
+    send(rpc_server, {:deliver, "nack - #{payload}", meta})
+    send(rpc_server, {:deliver, "reject - #{payload}", meta})
     send(rpc_server, {:deliver, payload, meta})
 
     expected_meta = Map.merge(meta, %{queue: queue, exchange: exchange})
-    assert_receive {:message, ^payload, ^expected_meta}
+    assert_receive {:message, ^payload,                ^expected_meta}
+    assert_receive {:message, "ack - " <> ^payload,    ^expected_meta}
+    assert_receive {:message, "nack - " <> ^payload,   ^expected_meta}
+    assert_receive {:message, "reject - " <> ^payload, ^expected_meta}
 
     assert [{:open_channel,
               [_given_conn],
@@ -74,18 +87,27 @@ defmodule Hare.ConsumerTest do
               [given_chan_1, "foo", :direct, [durable: true]],
               :ok},
             {:declare_queue,
-              [given_chan_1, "bar", [no_ack: true]],
+              [given_chan_1, "bar", []],
               {:ok, _info}},
             {:bind,
               [given_chan_1, "bar", "foo", [routing_key: "baz"]],
               :ok},
             {:consume,
-              [given_chan_1, "bar", ^rpc_server, [no_ack: true]],
+              [given_chan_1, "bar", ^rpc_server, []],
               {:ok, _consumer_tag}},
             {:monitor_channel,
               [given_chan_1],
-              _ref}
-           ] = Adapter.Backdoor.last_events(history, 6)
+              _ref},
+            {:ack,
+              [given_chan_1, _meta_ack, []],
+              :ok},
+            {:nack,
+              [given_chan_1, _meta_nack, []],
+              :ok},
+            {:reject,
+              [given_chan_1, _meta_reject, [requeue: true]],
+              :ok}
+           ] = Adapter.Backdoor.last_events(history, 9)
 
     Adapter.Backdoor.unlink(given_chan_1)
     Adapter.Backdoor.crash(given_chan_1)
@@ -105,13 +127,13 @@ defmodule Hare.ConsumerTest do
               [given_chan_2, "foo", :direct, [durable: true]],
               :ok},
             {:declare_queue,
-              [given_chan_2, "bar", [no_ack: true]],
+              [given_chan_2, "bar", []],
               {:ok, _info}},
             {:bind,
               [given_chan_2, "bar", "foo", [routing_key: "baz"]],
               :ok},
             {:consume,
-              [given_chan_2, "bar", ^rpc_server, [no_ack: true]],
+              [given_chan_2, "bar", ^rpc_server, []],
               {:ok, _consumer_tag}},
             {:monitor_channel,
               [given_chan_2],

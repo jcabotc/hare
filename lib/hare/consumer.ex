@@ -2,6 +2,7 @@ defmodule Hare.Consumer do
   @type payload :: binary
   @type meta    :: map
   @type state   :: term
+  @type action  :: :ack | :nack | :reject
 
   @callback init(initial :: term) ::
               GenServer.on_start
@@ -15,6 +16,8 @@ defmodule Hare.Consumer do
               {:stop, reason :: term, state}
 
   @callback handle_message(payload, meta, state) ::
+              {:reply, action, state} |
+              {:reply, action, opts :: Keyword.t, state} |
               {:noreply, state} |
               {:stop, reason :: term, state}
 
@@ -39,7 +42,7 @@ defmodule Hare.Consumer do
         do: {:noreply, state}
 
       def handle_message(_payload, _meta, state),
-        do: {:noreply, state}
+        do: {:reply, :ack, state}
 
       def handle_info(_message, state),
         do: {:noreply, state}
@@ -66,6 +69,13 @@ defmodule Hare.Consumer do
     Connection.start_link(__MODULE__, args, opts)
   end
 
+  def ack(%{queue: queue} = meta, opts \\ []),
+    do: Queue.ack(queue, meta, opts)
+  def nack(%{queue: queue} = meta, opts \\ []),
+    do: Queue.nack(queue, meta, opts)
+  def reject(%{queue: queue} = meta, opts \\ []),
+    do: Queue.reject(queue, meta, opts)
+
   def init({mod, conn, config, context, initial}) do
     with {:ok, declaration} <- Declaration.parse(config, context),
          {:ok, given}       <- mod.init(initial) do
@@ -79,7 +89,7 @@ defmodule Hare.Consumer do
   def connect(_info, %{conn: conn, declaration: declaration} = state) do
     with {:ok, chan}            <- Chan.open(conn),
          {:ok, queue, exchange} <- Declaration.run(declaration, chan),
-         {:ok, new_queue}       <- Queue.consume(queue, no_ack: true) do
+         {:ok, new_queue}       <- Queue.consume(queue) do
       handle_connected(state, chan, new_queue, exchange)
     else
       {:error, reason} -> {:stop, reason}
@@ -149,6 +159,30 @@ defmodule Hare.Consumer do
     completed_meta = complete(meta, state)
 
     case mod.handle_message(payload, completed_meta, given) do
+      {:reply, :ack, new_given} ->
+        ack(completed_meta)
+        {:noreply, State.set(state, new_given)}
+
+      {:reply, :nack, new_given} ->
+        nack(completed_meta)
+        {:noreply, State.set(state, new_given)}
+
+      {:reply, :reject, new_given} ->
+        reject(completed_meta)
+        {:noreply, State.set(state, new_given)}
+
+      {:reply, :ack, opts, new_given} ->
+        ack(completed_meta, opts)
+        {:noreply, State.set(state, new_given)}
+
+      {:reply, :nack, opts, new_given} ->
+        nack(completed_meta, opts)
+        {:noreply, State.set(state, new_given)}
+
+      {:reply, :reject, opts, new_given} ->
+        reject(completed_meta, opts)
+        {:noreply, State.set(state, new_given)}
+
       {:noreply, new_given} ->
         {:noreply, State.set(state, new_given)}
 
