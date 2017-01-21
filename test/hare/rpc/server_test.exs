@@ -107,7 +107,7 @@ defmodule Hare.RPC.ServerTest do
 
     send(rpc_server, {:deliver, payload, meta})
     assert_receive {:message, payload, _meta}
-    Process.sleep(5)
+    Process.sleep(10)
 
     reply   = "received: #{payload}"
     headers = [correlation_id: 11]
