@@ -116,8 +116,8 @@ defmodule Hare.RPC.Client do
         set_request_timeout(correlation_id, state)
         {:noreply, State.set(state, new_given, correlation_id, from)}
 
-      {:ok, new_payload, new_opts, new_given} ->
-        correlation_id = perform(new_payload, routing_key, new_opts, state)
+      {:ok, new_payload, new_routing_key, new_opts, new_given} ->
+        correlation_id = perform(new_payload, new_routing_key, new_opts, state)
         {:noreply, State.set(state, new_given, correlation_id, from)}
 
       {:reply, response, new_given} ->
