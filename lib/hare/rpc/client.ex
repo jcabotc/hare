@@ -121,10 +121,10 @@ defmodule Hare.RPC.Client do
         {:noreply, State.set(state, new_given, correlation_id, from)}
 
       {:reply, response, new_given} ->
-        {:reply, response, State.set(state, new_given)}
+        {:reply, {:ok, response}, State.set(state, new_given)}
 
       {:stop, reason, response, new_given} ->
-        {:stop, reason, response, State.set(state, new_given)}
+        {:stop, reason, {:ok, response}, State.set(state, new_given)}
     end
   end
 

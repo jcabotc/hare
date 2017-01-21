@@ -81,6 +81,8 @@ defmodule Hare.RPC.ClientTest do
     assert nil == Task.yield(request_1, 20)
     assert nil == Task.yield(request_2, 1)
 
+    assert {:ok, "hi!"} = TestClient.request(rpc_client, payload, routing_key, hook: "reply: hi!")
+
     assert [{:open_channel,
               [_given_conn],
               {:ok, given_chan_1}},
@@ -125,7 +127,7 @@ defmodule Hare.RPC.ClientTest do
   end
 
   test "timeout" do
-    {_history, conn} = build_conn
+    {history, conn} = build_conn
 
     config = [exchange: [name: "foo",
                          type: :fanout,
@@ -141,5 +143,16 @@ defmodule Hare.RPC.ClientTest do
 
     Process.sleep(5)
     assert {:error, :timeout} == Task.await(request)
+
+    Process.unlink(rpc_client)
+    assert {:ok, "bye!"} = TestClient.request(rpc_client, payload, "", hook: "stop: bye!")
+
+    [{:publish,
+       [given_chan, "foo", ^payload, "", _opts],
+       :ok},
+     {:close_channel,
+       [given_chan],
+       :ok}
+    ] = Adapter.Backdoor.last_events(history, 2)
   end
 end
