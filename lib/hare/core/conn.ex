@@ -4,16 +4,21 @@ defmodule Hare.Core.Conn do
 
   This module defines the connection process. It wraps the real
   AMQP connection and monitors it, handles failures and reconnections,
-  and provides an interface to new channels.
+  and provides an interface to open new channels.
   """
+
+  @type config :: State.Bridge.config
 
   use Connection
 
   alias __MODULE__.State
 
+  @spec start_link(config, GenServer.options) :: GenServer.on_start
   def start_link(config, opts \\ []),
     do: Connection.start_link(__MODULE__, config, opts)
 
+  @spec open_channel(conn :: pid) :: {:ok, Hare.Core.Chan} |
+                                     {:error, reason :: term}
   def open_channel(conn),
     do: Connection.call(conn, :open_channel)
 

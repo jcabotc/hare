@@ -114,8 +114,13 @@ defmodule Hare.Core.Conn.State do
 
   defp reply_waiting(clients, bridge, reply) do
     Enum.each(clients, fn client ->
-      result = Bridge.open_channel(bridge)
-      reply.(client, result)
+      reply.(client, channel_to_reply(bridge))
     end)
+  end
+
+  defp channel_to_reply(%{adapter: adapter} = bridge) do
+    with {:ok, given_chan} <- Bridge.open_channel(bridge) do
+      {:ok, Chan.new(given_chan, adapter)}
+    end
   end
 end
