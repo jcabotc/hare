@@ -43,28 +43,30 @@ defmodule Hare.Adapter do
 
   # Declare
   #
-  @type exchange :: binary
-  @type queue    :: binary
+  @type exchange_name :: binary
+  @type exchange_type :: atom
 
-  @callback declare_exchange(chan, exchange, type :: atom, opts) ::
+  @type queue_name :: binary
+
+  @callback declare_exchange(chan, exchange_name, exchange_type, opts) ::
               :ok | {:error, reason :: term}
 
-  @callback delete_exchange(chan, exchange, opts) ::
+  @callback delete_exchange(chan, exchange_name, opts) ::
               :ok
 
-  @callback declare_queue(chan, queue, opts) ::
+  @callback declare_queue(chan, queue_name, opts) ::
               {:ok, info :: term} | {:error, term}
 
   @callback declare_server_named_queue(chan, opts) ::
-              {:ok, queue, info :: term} | {:error, term}
+              {:ok, queue_name, info :: term} | {:error, term}
 
-  @callback delete_queue(chan, queue, opts) ::
+  @callback delete_queue(chan, queue_name, opts) ::
               {:ok, info :: term}
 
-  @callback bind(chan, queue, exchange, opts) ::
+  @callback bind(chan, queue_name, exchange_name, opts) ::
               :ok
 
-  @callback unbind(chan, queue, exchange, opts) ::
+  @callback unbind(chan, queue_name, exchange_name, opts) ::
               :ok
 
   # Publish
@@ -72,7 +74,7 @@ defmodule Hare.Adapter do
   @type payload     :: binary
   @type routing_key :: binary
 
-  @callback publish(chan, exchange, payload, routing_key, opts) ::
+  @callback publish(chan, exchange_name, payload, routing_key, opts) ::
               :ok
 
   # Consume
@@ -80,13 +82,13 @@ defmodule Hare.Adapter do
   @type meta         :: map
   @type consumer_tag :: binary
 
-  @callback get(chan, queue, opts) ::
+  @callback get(chan, queue_name, opts) ::
               {:empty, info :: map} | {:ok, payload, meta}
 
-  @callback purge(chan, queue) ::
+  @callback purge(chan, queue_name) ::
               {:ok, info :: map}
 
-  @callback consume(chan, queue, pid, opts) ::
+  @callback consume(chan, queue_name, pid, opts) ::
               {:ok, consumer_tag}
 
   @callback handle(message :: term) ::
