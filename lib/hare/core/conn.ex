@@ -1,4 +1,12 @@
 defmodule Hare.Core.Conn do
+  @moduledoc """
+  The Hare connection.
+
+  This module defines the connection process. It wraps the real
+  AMQP connection and monitors it, handles failures and reconnections,
+  and provides an interface to new channels.
+  """
+
   use Connection
 
   alias __MODULE__.State
