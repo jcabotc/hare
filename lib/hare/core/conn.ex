@@ -9,7 +9,7 @@ defmodule Hare.Core.Conn do
   When the process has been started it tries to establish connection and,
   in case of failure, it keeps trying to reconnect forever.
 
-  When a `open_channel/1` is called and the connection is not established
+  When `open_channel/1` is called and the connection is not established
   it blocks the caller until the connection is established, after that it
   opens a channel and returns it.
 

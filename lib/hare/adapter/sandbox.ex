@@ -1,4 +1,15 @@
 defmodule Hare.Adapter.Sandbox do
+  @moduledoc """
+  Sandbox implementation for the `Hare.Adapter` behaviour.
+
+  It is meant to be used only on tests.
+
+  This adapter allows the developer to inspect its history and modify
+  its behaviour during tests throught the `Hare.Adapter.Sandbox.Backdoor`
+  module.
+
+  """
+
   @behaviour Hare.Adapter
 
   alias __MODULE__.{Conn, Chan}

@@ -1,6 +1,12 @@
 if Code.ensure_loaded?(AMQP) do
 
   defmodule Hare.Adapter.AMQP do
+    @moduledoc """
+    Implementation of the `Hare.Adapter` behaviour for the AMQP library.
+
+    Check `Hare.Adapter` for more information on the functions on this module.
+    """
+
     @behaviour Hare.Adapter
 
     alias AMQP.{Connection,

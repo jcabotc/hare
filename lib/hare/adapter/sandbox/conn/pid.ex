@@ -1,4 +1,6 @@
 defmodule Hare.Adapter.Sandbox.Conn.Pid do
+  @moduledoc false
+
   use GenServer
 
   def start_link,

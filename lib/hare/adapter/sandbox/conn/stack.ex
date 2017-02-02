@@ -1,4 +1,6 @@
 defmodule Hare.Adapter.Sandbox.Conn.Stack do
+  @moduledoc false
+
   def start_link(items, opts \\ []),
     do: Agent.start_link(fn -> items end, opts)
 
