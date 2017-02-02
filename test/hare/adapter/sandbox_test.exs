@@ -161,12 +161,12 @@ defmodule Hare.Adapter.SandboxTest do
     {:ok, conn} = Adapter.open_connection(config)
     {:ok, chan} = Adapter.open_channel(conn)
 
-    assert {:ok, tag} = Adapter.consume(chan, "foo", self, [])
+    assert {:ok, tag} = Adapter.consume(chan, "foo", self(), [])
     assert :ok       == Adapter.cancel(chan, tag, [])
 
     expected_events = [{:open_connection, [config],                {:ok, conn}},
                        {:open_channel,    [conn],                  {:ok, chan}},
-                       {:consume,         [chan, "foo", self, []], {:ok, tag}},
+                       {:consume,         [chan, "foo", self(), []], {:ok, tag}},
                        {:cancel,          [chan, tag, []],         :ok}]
 
     assert expected_events == Adapter.Backdoor.events(history)

@@ -16,7 +16,7 @@ defmodule Hare.Core.QueueTest do
   end
 
   test "declare/3, purge/1 and delete/1" do
-    {history, chan} = build_channel
+    {history, chan} = build_channel()
 
     assert {:ok, info, queue} = Queue.declare(chan, "foo", [durable: true])
     assert queue.chan == chan
@@ -37,7 +37,7 @@ defmodule Hare.Core.QueueTest do
   end
 
   test "declare/1 and declare/2 with server named queue" do
-    {history, chan} = build_channel
+    {history, chan} = build_channel()
 
     assert {:ok, info, queue} = Queue.declare(chan)
     assert %{name: name} = queue
@@ -53,7 +53,7 @@ defmodule Hare.Core.QueueTest do
   end
 
   test "bind/3 and unbind/3" do
-    {history, chan} = build_channel
+    {history, chan} = build_channel()
 
     queue = Queue.new(chan, "foo")
 
@@ -104,8 +104,8 @@ defmodule Hare.Core.QueueTest do
   end
 
   test "consume, message handling and cancel" do
-    test_pid        = self
-    {history, chan} = build_channel
+    test_pid        = self()
+    {history, chan} = build_channel()
 
     queue = Queue.new(chan, "foo")
 

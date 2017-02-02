@@ -203,7 +203,7 @@ defmodule Hare.RPC.Client do
   end
 
   defp perform(payload, routing_key, opts, %{req_exchange: req_exchange, resp_queue: resp_queue}) do
-    correlation_id = generate_correlation_id
+    correlation_id = generate_correlation_id()
     new_opts = Keyword.merge(opts, reply_to:       resp_queue.name,
                                    correlation_id: correlation_id)
 
@@ -225,6 +225,6 @@ defmodule Hare.RPC.Client do
 
   defp set_request_timeout(correlation_id, %{runtime_opts: %{timeout: timeout}}) do
     if timeout != :infinity,
-      do: Process.send_after(self, {:request_timeout, correlation_id}, timeout)
+      do: Process.send_after(self(), {:request_timeout, correlation_id}, timeout)
   end
 end

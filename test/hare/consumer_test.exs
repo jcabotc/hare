@@ -47,7 +47,7 @@ defmodule Hare.ConsumerTest do
   end
 
   test "echo server" do
-    {history, conn} = build_conn
+    {history, conn} = build_conn()
 
     config = [exchange: [name: "foo",
                          type: :direct,
@@ -56,7 +56,7 @@ defmodule Hare.ConsumerTest do
                       opts: []],
               bind: [routing_key: "baz"]]
 
-    {:ok, rpc_server} = TestConsumer.start_link(conn, config, self)
+    {:ok, rpc_server} = TestConsumer.start_link(conn, config, self())
 
     send(rpc_server, {:consume_ok, %{bar: "baz"}})
     assert_receive {:ready, %{bar: "baz", queue: queue, exchange: exchange}}

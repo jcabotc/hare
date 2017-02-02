@@ -76,9 +76,9 @@ defmodule Hare.Core.Queue do
   def reject(%Queue{chan: %{given: given, adapter: adapter}}, meta, opts \\ []),
     do: adapter.reject(given, meta, opts)
 
-  def consume(queue),                       do: consume(queue, self, [])
+  def consume(queue),                       do: consume(queue, self(), [])
   def consume(queue, pid) when is_pid(pid), do: consume(queue, pid, [])
-  def consume(queue, opts),                 do: consume(queue, self, opts)
+  def consume(queue, opts),                 do: consume(queue, self(), opts)
   def consume(%Queue{consuming: true}, _pid, _opts) do
     {:error, :already_consuming}
   end

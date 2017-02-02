@@ -45,13 +45,13 @@ defmodule Hare.PublisherTest do
   end
 
   test "publication" do
-    {history, conn} = build_conn
+    {history, conn} = build_conn()
 
     config = [exchange: [name: "foo",
                          type: :fanout,
                          opts: [durable: true]]]
 
-    {:ok, rpc_client} = TestPublisher.start_link(conn, config, self)
+    {:ok, rpc_client} = TestPublisher.start_link(conn, config, self())
 
     send(rpc_client, :some_message)
     assert_receive {:info, :some_message}

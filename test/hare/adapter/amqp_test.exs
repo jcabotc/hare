@@ -14,6 +14,14 @@ defmodule Hare.Adapter.AMQPTest do
 
   @routing_key "valid"
 
+  def receive_message(timeout \\ 100) do
+    receive do
+      message -> message
+    after
+      timeout -> raise "receive timeout"
+    end
+  end
+
   test "publish and consume messages" do
     assert {:ok, conn} = Adapter.open_connection(@config)
     assert {:ok, chan} = Adapter.open_channel(conn)
@@ -33,16 +41,16 @@ defmodule Hare.Adapter.AMQPTest do
     assert {:ok, ^payload, meta} = Adapter.get(chan, queue, [])
     assert :ok = Adapter.reject(chan, meta, [])
 
-    assert {:ok, consumer_tag} = Adapter.consume(chan, queue, self, [])
-    assert_receive message
+    assert {:ok, consumer_tag} = Adapter.consume(chan, queue, self(), [])
+    message = receive_message()
     assert {:consume_ok, _meta} = Adapter.handle(message)
 
-    assert_receive message
+    message = receive_message()
     assert {:deliver, ^payload, meta} = Adapter.handle(message)
     assert :ok = Adapter.ack(chan, meta, [])
 
     assert :ok = Adapter.cancel(chan, consumer_tag, [])
-    assert_receive message
+    message = receive_message()
     assert {:cancel_ok, _meta} = Adapter.handle(message)
 
     assert :ok = Adapter.unbind(chan, queue, exchange, [])

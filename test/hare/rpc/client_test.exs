@@ -50,13 +50,13 @@ defmodule Hare.RPC.ClientTest do
   end
 
   test "echo server" do
-    {history, conn} = build_conn
+    {history, conn} = build_conn()
 
     config = [exchange: [name: "foo",
                          type: :fanout,
                          opts: [durable: true]]]
 
-    {:ok, rpc_client} = TestClient.start_link(conn, config, self)
+    {:ok, rpc_client} = TestClient.start_link(conn, config, self())
 
     send(rpc_client, {:consume_ok, %{bar: "baz"}})
     assert_receive {:ready, %{bar:          "baz",
@@ -127,14 +127,14 @@ defmodule Hare.RPC.ClientTest do
   end
 
   test "timeout" do
-    {history, conn} = build_conn
+    {history, conn} = build_conn()
 
     config = [exchange: [name: "foo",
                          type: :fanout,
                          opts: [durable: true]],
               timeout: 1]
 
-    {:ok, rpc_client} = TestClient.start_link(conn, config, self)
+    {:ok, rpc_client} = TestClient.start_link(conn, config, self())
 
     payload = "the request"
     request = Task.async fn ->

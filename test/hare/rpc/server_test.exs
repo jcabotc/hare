@@ -48,7 +48,7 @@ defmodule Hare.RPC.ServerTest do
   end
 
   test "echo server" do
-    {history, conn} = build_conn
+    {history, conn} = build_conn()
 
     config = [exchange: [name: "foo",
                          type: :fanout,
@@ -56,7 +56,7 @@ defmodule Hare.RPC.ServerTest do
               queue: [name: "bar",
                       opts: [no_ack: true]]]
 
-    {:ok, rpc_server} = EchoTestServer.start_link(conn, config, self)
+    {:ok, rpc_server} = EchoTestServer.start_link(conn, config, self())
 
     send(rpc_server, {:consume_ok, %{bar: "baz"}})
     assert_receive {:ready, %{bar: "baz", queue: queue, exchange: exchange}}
