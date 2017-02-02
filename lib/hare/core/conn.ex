@@ -44,18 +44,12 @@ defmodule Hare.Core.Conn do
   def disconnect(reason, state),
     do: {:stop, reason, state}
 
-  def handle_call(:open_channel, from, state) do
-    case State.open_channel(state, from) do
-      {:wait, new_state} -> {:noreply, new_state}
-      result             -> {:reply, result, state}
-    end
-  end
-  def handle_call({:close, reason}, _from, state) do
-    {:disconnect, reason, :ok, state}
-  end
-  def handle_call(:given_conn, _from, state) do
-    {:reply, State.given_conn(state), state}
-  end
+  def handle_call(:open_channel, from, state),
+    do: {:noreply, State.open_channel(state, from)}
+  def handle_call({:close, reason}, _from, state),
+    do: {:disconnect, reason, :ok, state}
+  def handle_call(:given_conn, _from, state),
+    do: {:reply, State.given_conn(state), state}
 
   def handle_info({:DOWN, ref, _, _, _reason}, state) do
     case State.down?(state, ref) do

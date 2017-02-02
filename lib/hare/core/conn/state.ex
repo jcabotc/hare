@@ -65,16 +65,14 @@ defmodule Hare.Core.Conn.State do
   @doc """
   It attempts to open a new channel.
 
-  If the connection is established it opens the channel and returns
-  `{:ok, Hare.Core.Chan}` the new open channel on success or `{:error, reason}`
+  If the connection is established, it uses the reply function to send the
+  result to the client. `{:ok, Hare.Core.Chan.t}` on success and `{:error, reason}`
   on failure.
-  If the connection is not established it returns `{:wait, t}` instructing the
-  caller to hold the client and wait, because the reply function will be used
-  to return the channel to the client when the connection is established.
+
+  If the connection is not established, it adds the client to the waiting list
+  and tries to reopen the channel and reply when the connection is established.
   """
-  @spec open_channel(t, client) :: {:ok, Hare.Chan.t} |
-                                   {:wait, t} |
-                                   {:error, reason :: term}
+  @spec open_channel(t, client) :: t
   def open_channel(%State{bridge: bridge} = state, client),
     do: Bridge.open_channel(bridge) |> handle_open_channel(state, client)
 
@@ -92,35 +90,28 @@ defmodule Hare.Core.Conn.State do
   def disconnect(%State{bridge: bridge} = state),
     do: %{state | bridge: Bridge.disconnect(bridge)}
 
-  defp handle_connect({:ok, new_bridge}, %{waiting: waiting, reply: reply} = state) do
+  defp handle_connect({:ok, new_bridge}, %{waiting: waiting} = state) do
     {clients, new_waiting} = Waiting.pop_all(waiting)
-    reply_waiting(clients, new_bridge, reply)
+    new_state = %{state | bridge: new_bridge, waiting: new_waiting}
 
-    {:ok, %{state | bridge: new_bridge, waiting: new_waiting}}
+    {:ok, reply_waiting(clients, new_state)}
   end
   defp handle_connect({:retry, interval, _reason, new_bridge}, state) do
     {:retry, interval, %{state | bridge: new_bridge}}
   end
 
-  defp handle_open_channel({:ok, given_chan}, %{bridge: bridge}, _client) do
-    {:ok, Chan.new(given_chan, bridge.adapter)}
+  defp handle_open_channel({:ok, given_chan}, %{bridge: bridge, reply: reply} = state, client) do
+    reply.(client, {:ok, Chan.new(given_chan, bridge.adapter)})
+    state
   end
   defp handle_open_channel(:not_connected, %{waiting: waiting} = state, client) do
-    {:wait, %{state | waiting: Waiting.push(waiting, client)}}
+    %{state | waiting: Waiting.push(waiting, client)}
   end
-  defp handle_open_channel({:error, _reason} = error, _state, _client) do
-    error
-  end
-
-  defp reply_waiting(clients, bridge, reply) do
-    Enum.each(clients, fn client ->
-      reply.(client, channel_to_reply(bridge))
-    end)
+  defp handle_open_channel({:error, _reason} = error, %{reply: reply} = state, client) do
+    reply.(client, error)
+    state
   end
 
-  defp channel_to_reply(%{adapter: adapter} = bridge) do
-    with {:ok, given_chan} <- Bridge.open_channel(bridge) do
-      {:ok, Chan.new(given_chan, adapter)}
-    end
-  end
+  defp reply_waiting(clients, state),
+    do: Enum.reduce(clients, state, &open_channel(&2, &1))
 end
