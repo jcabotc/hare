@@ -5,6 +5,16 @@ defmodule Hare.Core.Conn do
   This module defines the connection process. It wraps the real
   AMQP connection and monitors it, handles failures and reconnections,
   and provides an interface to open new channels.
+
+  When the process has been started it tries to establish connection and,
+  in case of failure, it keeps trying to reconnect forever.
+
+  When a `open_channel/1` is called and the connection is not established
+  it blocks the caller until the connection is established, after that it
+  opens a channel and returns it.
+
+  A timeout may be specified for this operation by using `open_channel/2`.
+  By default the timeout is 5 seconds.
   """
 
   @type config :: State.Bridge.config
