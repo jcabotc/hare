@@ -27,7 +27,7 @@ defmodule Hare.Context.Action.DeclareServerNamedQueue do
   """
 
   @typedoc "The action configuration"
-  @type config :: %{optional(:opts) => Keyword.t,
+  @type config :: %{optional(:opts)      => Keyword.t,
                     optional(:export_as) => atom}
 
   @behaviour Hare.Context.Action
