@@ -12,7 +12,7 @@ defmodule Hare.Publisher do
   defmodule MyPublisher do
     use Hare.Publisher
 
-    def start_link(conn, config, max_count, opts \\ []) do
+    def start_link(conn, config, opts \\ []) do
       Hare.Publisher.start_link(__MODULE__, conn, config, :ok, opts)
     end
 
