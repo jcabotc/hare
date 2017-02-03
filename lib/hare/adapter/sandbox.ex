@@ -8,6 +8,7 @@ defmodule Hare.Adapter.Sandbox do
   its behaviour during tests throught the `Hare.Adapter.Sandbox.Backdoor`
   module.
 
+  Check `Hare.Adapter.Sandbox.Backdoor` for more information.
   """
 
   @behaviour Hare.Adapter

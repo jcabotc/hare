@@ -32,8 +32,8 @@ defmodule Hare.Adapter.Sandbox.Backdoor do
   def start_history(opts \\ []),
     do: Conn.History.start_link(opts)
 
+  @typedoc "Possible result specifications for `on_connect/1` and `on_channel_open/1`"
   @type result  :: :ok | {:error, reason :: term}
-  @type results :: [result]
 
   @doc """
   Starts a new agent process that specifies the behaviour of the
@@ -65,7 +65,7 @@ defmodule Hare.Adapter.Sandbox.Backdoor do
   Adapter.open_connection(config) # => {:ok, conn_3}
   ```
   """
-  @spec on_connect(results, GenServer.options) :: Agent.on_start
+  @spec on_connect([result], GenServer.options) :: Agent.on_start
   def on_connect(results, opts \\ []),
     do: Conn.Stack.start_link(results, opts)
 
@@ -101,7 +101,7 @@ defmodule Hare.Adapter.Sandbox.Backdoor do
   Adapter.open_channel(conn) # => {:ok, chan_3}
   ```
   """
-  @spec on_channel_open(results, GenServer.options) :: Agent.on_start
+  @spec on_channel_open([result], GenServer.options) :: Agent.on_start
   def on_channel_open(results, opts \\ []),
     do: Conn.Stack.start_link(results, opts)
 
@@ -137,12 +137,12 @@ defmodule Hare.Adapter.Sandbox.Backdoor do
   Adapter.get(chan, "yet_another")   # => {:empty, %{}}
   ```
   """
-  @spec messages(results, GenServer.options) :: Agent.on_start
-  def messages(results, opts \\ []),
-    do: Conn.Stack.start_link(results, opts)
+  @spec messages(messages :: [term], GenServer.options) :: Agent.on_start
+  def messages(messages, opts \\ []),
+    do: Conn.Stack.start_link(messages, opts)
 
+  @typedoc "Event returned by history checking functions. Like `events/1`."
   @type event  :: {function :: atom, args :: [term], result :: term}
-  @type events :: [event]
 
   @doc """
   Returns all functions called on the adapter for the connection that
@@ -166,7 +166,7 @@ defmodule Hare.Adapter.Sandbox.Backdoor do
                                    #     {:get,             [chan, "my_queue", []], {:empty, %{}}]
   ```
   """
-  @spec events(pid) :: events
+  @spec events(pid) :: [event]
   def events(history),
     do: Conn.History.events(history)
 
@@ -180,7 +180,7 @@ defmodule Hare.Adapter.Sandbox.Backdoor do
   @doc """
   Similar to `events/1` but it only returns the most recent `count` events.
   """
-  @spec last_events(pid, count :: non_neg_integer) :: events
+  @spec last_events(pid, count :: non_neg_integer) :: [event]
   def last_events(history, count),
     do: Conn.History.last_events(history, count)
 
@@ -198,7 +198,7 @@ defmodule Hare.Adapter.Sandbox.Backdoor do
 
 
   @doc """
-  Provokes connection or a channel process to stop with the given reason,
+  Provokes a connection or a channel process to stop with the given reason,
   therefore triggering all monitors and links with that process.
   """
   @spec unlink(Conn.t | Chan.t) :: true
