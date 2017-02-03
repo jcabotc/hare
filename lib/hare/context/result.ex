@@ -22,28 +22,21 @@ defmodule Hare.Context.Result do
 
   alias __MODULE__
 
-  @typedoc "The config of a step"
-  @type config :: term
-
-  @typedoc """
-  The module implementing the `Hare.Context.Action` behaviour, or an atom representing
-  a default step.
-  """
-  @type step_mod :: :atom
+  @type step_mod :: Hare.Context.Action.t
+  @type config   :: Hare.Context.Action.config
+  @type info     :: Hare.Context.Action.info
+  @type exports  :: Hare.Context.Action.exports
 
   @typedoc """
   The possible formats of a step depending on whether it succeeded, failed or
   was not run.
   """
-  @type step_result :: %{status: :success, config: config, info: info :: term} |
+  @type step_result :: %{status: :success, config: config, info: info} |
                        %{status: :failure, config: config, reason: reason :: term} |
                        %{status: :not_done, config: config}
 
   @typedoc "A list of pairs {module, result} representing a step."
   @type steps :: [{step_mod, step_result}]
-
-  @typedoc "The data exported by all steps."
-  @type exports :: map
 
   @type t :: %__MODULE__{
               steps:   [{step_mod, step_result}],
@@ -63,7 +56,7 @@ defmodule Hare.Context.Result do
     do: Enum.reverse(steps)
 
   @doc "Adds a success step to the given result, and updates exports."
-  @spec success(t, step_mod, config, info :: term, exports) :: t
+  @spec success(t, step_mod, config, info, exports) :: t
   def success(%Result{} = result, mod, config, info, new_exports),
     do: ok_step(mod, config, info) |> add(result, new_exports)
 
