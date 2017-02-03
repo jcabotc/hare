@@ -23,7 +23,7 @@ defmodule Hare.Context.Action.DefaultExchange do
   exports = %{}
 
   DefaultExchange.run(chan, config, exports)
-  # => {:ok, nil, %{def: %Hare.Core.Exchange{chan: chan, name: "foo"}}}
+  # => {:ok, nil, %{def: %Hare.Core.Exchange{chan: chan, name: ""}}}
   ```
   """
 
