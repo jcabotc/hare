@@ -1,13 +1,56 @@
 defmodule Hare.Context do
+  @moduledoc """
+  This module provides an interface to run a set of declarations, bindings,
+  deletions and other actions on a AMQP server.
+
+  It is useful to setup a context before publishing or consuming messages by
+  performing a set of actions, like declaring exchanges or binding queues. But
+  it can also be used on its own.
+
+  ## Actions
+
+  Each step of the context is an action, and implements the `Hare.Context.Action`
+  behaviour. All steps are run sequentially, and if one step fails no more steps are
+  run.
+
+  When running an action it receives a channel, a configuration for that action,
+  and the exports map. The exports map is useful to put data on it to be accessed
+  by future actions or to read data from past actions that took place.
+
+  There are some common predefined actions that can be referenced by an atom,
+  but custom ones can be supplied. Check `Hare.Context.Action` for more information
+  on the default actions.
+
+  ## Running a context
+
+  A context receives a set of steps that has the following format:
+
+  ```
+  steps = [
+    AnAction, [some: "config"],
+    AnotherAction, [another: "action", foo: "bar"]
+  ]
+
+  {:ok, result} = Hare.Context.run(chan, steps)
+  ```
+
+  It returns a `Hare.Context.Result` struct keeps information and exports of
+  run steps, and error reasons from a failed step if exists.
+  Check `Hare.Context.Result` for more information.
+  """
+
   alias Hare.Core.Chan
   alias __MODULE__.{Result, Action}
 
   @type steps :: Keyword.t
 
+  @doc """
+  Validates the format of a set of steps.
+  """
   @spec validate(steps) ::
           :ok |
           {:error, :not_a_keyword_list} |
-          {:error, {:invalid_step, name :: atom, term}}
+          {:error, {:invalid_step, step :: atom, term}}
   def validate(steps) do
     case Keyword.keyword?(steps) do
       true  -> validate_each(steps)
@@ -25,6 +68,22 @@ defmodule Hare.Context do
     end
   end
 
+  @doc """
+  Runs a set of steps.
+
+  It receives a channel to run the steps on, the set of steps, and
+  some options.
+
+  The only valid option is:
+
+    * `:validate` - (true by default) Validates the steps before running them.
+
+  It may return:
+
+    * `{:invalid, reason}` - A step failed its validation
+    * `{:ok, result}` - All steps validated and ran successfully
+    * `{:error, result}` - A step failed to run
+  """
   @spec run(Chan.t, steps, opts :: Keyword.t) ::
           {:invalid, term} |
           {:ok, Result.t} |
