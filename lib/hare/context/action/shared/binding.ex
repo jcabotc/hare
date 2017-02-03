@@ -1,4 +1,6 @@
 defmodule Hare.Context.Action.Shared.Binding do
+  @moduledoc false
+
   @default_opts []
 
   alias Hare.Core.{Queue, Exchange}

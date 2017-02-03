@@ -1,4 +1,6 @@
 defmodule Hare.Context.Action.Helper.Exports do
+  @moduledoc false
+
   import Hare.Context.Action.Helper.Validations,
     only: [validate: 3]
 
