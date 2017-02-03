@@ -27,6 +27,7 @@ defmodule Hare.Context.Action.DeclareExchange do
 
   DeclareExchange.run(chan, config, exports)
   # => {:ok, nil, %{ex: %Hare.Core.Exchange{chan: chan, name: "foo"}}}
+  ```
   """
 
   @typedoc "The action configuration"

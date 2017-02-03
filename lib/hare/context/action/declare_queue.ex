@@ -25,6 +25,7 @@ defmodule Hare.Context.Action.DeclareQueue do
 
   DeclareQueue.run(chan, config, exports)
   # => {:ok, %{...}, %{my_queue: %Hare.Core.Queue{chan: chan, name: "foo"}}}
+  ```
   """
 
   @typedoc "The action configuration"

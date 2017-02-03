@@ -1,4 +1,37 @@
 defmodule Hare.Context.Action.DefaultExchange do
+  @moduledoc """
+  This module implements a `Hare.Context.Action` behaviour to
+  build the default exchange.
+
+  This action do not interact with the AMQP server, but provides an easy
+  way to build the default exchange and export it, in order to be used by
+  other steps or by the caller of the context.
+
+  ## Config
+
+  Configuration must be a `Keyword.t` with the following fields:
+
+    * `:export_as` - (defaults to `nil`) the key to export the declared exchange to
+
+  The `:export_as` config allows the action to export a `Hare.Core.Exchange`
+  struct to be used later by other steps.
+
+  ```
+  alias Hare.Context.Action.DefaultExchange
+
+  config  = [export_as: :def]
+  exports = %{}
+
+  DefaultExchange.run(chan, config, exports)
+  # => {:ok, nil, %{def: %Hare.Core.Exchange{chan: chan, name: "foo"}}}
+  ```
+  """
+
+  @typedoc "The action configuration"
+  @type config :: %{required(:name) => binary,
+                    optional(:type) => atom,
+                    optional(:opts) => Keyword.t,
+                    optional(:export_as) => atom}
   @behaviour Hare.Context.Action
 
   alias Hare.Core.Exchange
