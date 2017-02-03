@@ -1,4 +1,6 @@
 defmodule Hare.Consumer.State do
+  @moduledoc false
+
   alias __MODULE__
 
   defstruct [:conn, :declaration,

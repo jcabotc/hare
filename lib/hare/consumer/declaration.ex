@@ -1,4 +1,6 @@
 defmodule Hare.Consumer.Declaration do
+  @moduledoc false
+
   alias __MODULE__
 
   defstruct [:steps, :context]

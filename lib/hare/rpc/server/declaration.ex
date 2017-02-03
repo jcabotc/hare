@@ -1,4 +1,6 @@
 defmodule Hare.RPC.Server.Declaration do
+  @moduledoc false
+
   alias __MODULE__
 
   defstruct [:steps, :context]

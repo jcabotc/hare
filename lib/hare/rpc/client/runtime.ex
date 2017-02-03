@@ -1,4 +1,6 @@
 defmodule Hare.RPC.Client.Runtime do
+  @moduledoc false
+
   alias __MODULE__
 
   defstruct [:timeout]

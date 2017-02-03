@@ -1,4 +1,5 @@
 defmodule Hare.Publisher.Declaration do
+  @moduledoc false
   alias __MODULE__
 
   defstruct [:steps, :context]

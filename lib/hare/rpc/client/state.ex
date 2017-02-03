@@ -1,4 +1,6 @@
 defmodule Hare.RPC.Client.State do
+  @moduledoc false
+
   alias __MODULE__
 
   defstruct [:conn, :declaration, :runtime_opts,
