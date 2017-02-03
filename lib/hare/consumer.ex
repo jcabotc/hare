@@ -119,9 +119,8 @@ defmodule Hare.Consumer do
   Returning `{:noreply, state}` will causes the process to enter the main loop
   with the given state.
 
-  Returning `{:stop, reason, state}` will not send the message, terminate the
-  main loop and call `terminate(reason, state)` before the process exists with
-  reason `reason`.
+  Returning `{:stop, reason, state}` will terminate the main loop and call
+  `terminate(reason, state)` before the process exists with reason `reason`.
   """
   @callback handle_ready(meta, state) ::
               {:noreply, state} |
@@ -221,8 +220,7 @@ defmodule Hare.Consumer do
                    exchange: Hare.Context.Action.DeclareExchange.config,
                    bind:     Keyword.t]
 
-  @type queue :: Queue.t
-  @type opts  :: Hare.Adapter.opts
+  @type opts :: Hare.Adapter.opts
 
   @doc """
   Starts a `Hare.Consumer` process linked to the current process.
@@ -248,17 +246,17 @@ defmodule Hare.Consumer do
   end
 
   @doc "Ack's a message given its meta"
-  @spec ack(queue, opts) :: :ok
+  @spec ack(meta, opts) :: :ok
   def ack(%{queue: queue} = meta, opts \\ []),
     do: Queue.ack(queue, meta, opts)
 
   @doc "Nack's a message given its meta"
-  @spec nack(queue, opts) :: :ok
+  @spec nack(meta, opts) :: :ok
   def nack(%{queue: queue} = meta, opts \\ []),
     do: Queue.nack(queue, meta, opts)
 
   @doc "Rejects a message given its meta"
-  @spec reject(queue, opts) :: :ok
+  @spec reject(meta, opts) :: :ok
   def reject(%{queue: queue} = meta, opts \\ []),
     do: Queue.reject(queue, meta, opts)
 
