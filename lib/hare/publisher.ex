@@ -3,7 +3,7 @@ defmodule Hare.Publisher do
   A behaviour module for implementing AMQP publisher processes.
 
   The `Hare.Publisher` module provides a way to create processes that hold,
-  monitor, and restart a channel in case of failure, a function to publish
+  monitor, and restart a channel in case of failure, exports a function to publish
   messages to an exchange, and some callbacks to hook into the process lifecycle.
 
   An example `Hare.Publisher` process that only sends every other message:
