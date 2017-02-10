@@ -59,6 +59,9 @@ defmodule Hare.Core.Conn.State.Bridge do
 
   alias __MODULE__
 
+  @default_backoff [0, 10, 100, 1000, 5000]
+  @default_config  []
+
   @doc """
   Creates a new Bridge struct.
 
@@ -71,8 +74,8 @@ defmodule Hare.Core.Conn.State.Bridge do
   @spec new(config) :: t
   def new(config) do
     adapter      = Keyword.fetch!(config, :adapter)
-    backoff      = Keyword.fetch!(config, :backoff)
-    given_config = Keyword.fetch!(config, :config)
+    backoff      = Keyword.get(config, :backoff, @default_backoff)
+    given_config = Keyword.get(config, :config,  @default_config)
 
     %Bridge{adapter: adapter, backoff: backoff, config: given_config}
     |> set_not_connected
