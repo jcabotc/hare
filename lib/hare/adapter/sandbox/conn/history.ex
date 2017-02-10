@@ -1,4 +1,6 @@
 defmodule Hare.Adapter.Sandbox.Conn.History do
+  @moduledoc false
+
   def start_link(opts \\ []) do
     Agent.start_link(fn -> [] end, opts)
   end

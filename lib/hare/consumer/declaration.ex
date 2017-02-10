@@ -1,15 +1,12 @@
-defmodule Hare.RPC.Server.Declaration do
+defmodule Hare.Consumer.Declaration do
   @moduledoc false
 
   alias __MODULE__
 
   defstruct [:steps, :context]
 
-  @response_exchange_step {:default_exchange, [
-                             export_as: :response_exchange]}
-
-  @bind_exported_resources [exchange_from_export: :request_exchange,
-                            queue_from_export:    :request_queue]
+  @bind_exported_resources [exchange_from_export: :exchange,
+                            queue_from_export:    :queue]
 
   def parse(config, context) do
     with true         <- Keyword.keyword?(config),
@@ -42,18 +39,16 @@ defmodule Hare.RPC.Server.Declaration do
   end
 
   defp build_steps(exchange_config, queue_config, bind_opts) do
-    [@response_exchange_step,
-     declare_exchange: [{:export_as, :request_exchange} | exchange_config],
-     declare_queue:    [{:export_as, :request_queue}    | queue_config],
+    [declare_exchange: [{:export_as, :exchange} | exchange_config],
+     declare_queue:    [{:export_as, :queue}    | queue_config],
      bind:             [{:opts, bind_opts} | @bind_exported_resources]]
   end
 
   def run(%Declaration{steps: steps, context: context}, chan) do
     with {:ok, result} <- context.run(chan, steps, validate: false) do
-      %{request_queue:     request_queue,
-        response_exchange: response_exchange} = result.exports
+      %{queue: queue, exchange: exchange} = result.exports
 
-      {:ok, request_queue, response_exchange}
+      {:ok, queue, exchange}
     end
   end
 end

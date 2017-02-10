@@ -8,7 +8,7 @@ defmodule Hare.Mixfile do
      build_embedded: Mix.env == :prod,
      start_permanent: Mix.env == :prod,
      description: "Some abstractions to interact with a AMQP broker",
-     package: package,
+     package: package(),
      deps: deps()]
   end
 
@@ -17,8 +17,7 @@ defmodule Hare.Mixfile do
   end
 
   defp deps do
-    [{:amqp_client, git: "https://github.com/dsrosario/amqp_client.git", branch: "erlang_otp_19", override: true},
-     {:amqp, "~> 0.1.4", optional: true},
+    [{:amqp, "~> 0.1.4", hex: :amqp19, optional: true},
      {:connection, "~> 1.0"},
      {:ex_doc, ">= 0.0.0", only: :dev}]
   end

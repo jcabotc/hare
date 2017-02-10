@@ -1,4 +1,38 @@
 defmodule Hare.Context.Action.DeleteExchange do
+  @moduledoc """
+  This module implements a `Hare.Context.Action` behaviour to
+  delete an exchange from the AMQP server.
+
+  ## Config
+
+  Configuration must be a `Keyword.t` with the following fields:
+
+    * `:name` - the name of the exchange
+    * `:opts` - (defaults to `[]`) the options to be given to the adapter
+    * `:export_as` - (defaults to `nil`) the key to export the deleted exchange to
+
+  The `:export_as` config allows the action to export a `Hare.Core.Exchange`
+  struct to be used later by other steps (for example: to redeclare it with another type).
+
+  ```
+  alias Hare.Context.Action.DeleteExchange
+
+  config = [name: "foo",
+            opts: [no_wait: true],
+            export_as: :deleted_ex]
+
+  exports = %{}
+
+  DeleteExchange.run(chan, config, exports)
+  # => {:ok, nil, %{deleted_ex: %Hare.Core.Exchange{chan: chan, name: "foo"}}}
+  ```
+  """
+
+  @typedoc "The action configuration"
+  @type config :: %{required(:name)      => binary,
+                    optional(:opts)      => Keyword.t,
+                    optional(:export_as) => atom}
+
   @behaviour Hare.Context.Action
 
   alias Hare.Core.Exchange

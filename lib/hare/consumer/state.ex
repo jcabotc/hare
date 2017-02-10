@@ -1,4 +1,4 @@
-defmodule Hare.RPC.Server.State do
+defmodule Hare.Consumer.State do
   @moduledoc false
 
   alias __MODULE__

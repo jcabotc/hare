@@ -1,4 +1,6 @@
 defmodule Hare.Adapter.Sandbox.Chan do
+  @moduledoc false
+
   alias __MODULE__
   alias __MODULE__.Pid
   alias Hare.Adapter.Sandbox.Conn

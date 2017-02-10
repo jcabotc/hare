@@ -1,35 +1,37 @@
-defmodule Hare.RPC.Server do
+defmodule Hare.Consumer do
   @moduledoc """
-  A behaviour module for implementing AMQP RPC server processes.
+  A behaviour module for implementing AMQP consumer processes.
 
-  The `Hare.RPC.Server` module provides a way to create processes that hold,
+  The `Hare.Consumer` module provides a way to create processes that hold,
   monitor, and restart a channel in case of failure, and have some callbacks
   to hook into the process lifecycle and handle messages.
 
-  An example `Hare.RPC.Server` process that responds messages with `"ping"` as
-  payload with a `"pong"` response, otherwise it does not ack but calls a given
-  handler function with the payload and a callback function, so the handler can
-  respond when the message is processed:
+  An example `Hare.Consumer` process that ignores and acks messages with the
+  payload `"hello"`, otherwise it does not ack but calls a given handler function
+  with the payload and a callback function, so the handler can ack the message
+  when finished processing it:
 
   ```
-  defmodule MyRPC.Server do
-    use Hare.RPC.Server
+  defmodule MyConsumer do
+    use Hare.Consumer
 
     def start_link(conn, config, handler) do
-      Hare.RPC.Server.start_link(__MODULE__, conn, config, handler)
+      Hare.Consumer.start_link(__MODULE__, conn, config, handler)
     end
 
     def init(handler) do
       {:ok, %{handler: handler}}
     end
 
-    def handle_request("ping", _meta, state) do
-      {:reply, "pong", state}
+    def handle_message("hello", _meta, state) do
+      {:reply, :ack, state}
     end
-    def handle_request(payload, meta, %{handler: handler} = state) do
-      callback = &Hare.RPC.Server.reply(meta, &1)
+    def handle_message(payload, meta, %{handler: handler} = state) do
+      ack_callback = fn ->
+        Hare.Consumer.ack(meta)
+      end
 
-      handler.(payload, callback)
+      handler.(payload, ack_callback)
       {:noreply, state}
     end
   end
@@ -37,7 +39,7 @@ defmodule Hare.RPC.Server do
 
   ## Channel handling
 
-  When the `Hare.RPC.Server` starts with `start_link/5` it runs the `init/1` callback
+  When the `Hare.Consumer` starts with `start_link/5` it runs the `init/1` callback
   and responds with `{:ok, pid}` on success, like a GenServer.
 
   After starting the process it attempts to open a channel on the given connection.
@@ -46,9 +48,8 @@ defmodule Hare.RPC.Server do
 
   ## Context setup
 
-  The context setup process for a RPC server is to declare an exchange, then declare
-  a queue to consume, and then bind the queue to the exchange. It also creates a
-  default exchange to use it to respond to the reply-to queue.
+  The context setup process for a consumer is to declare an exchange, then declare
+  a queue to consume, and then bind the queue to the exchange.
 
   Every time a channel is open the context is set up, meaning that the queue and
   the exchange are declared and binded through the new channel based on the given
@@ -64,9 +65,10 @@ defmodule Hare.RPC.Server do
   @type payload :: Hare.Adapter.payload
   @type meta    :: map
   @type state   :: term
+  @type action  :: :ack | :nack | :reject
 
   @doc """
-  Called when the RPC server process is first started. `start_link/5` will block
+  Called when the consumer process is first started. `start_link/5` will block
   until it returns.
 
   It receives as argument the fourth argument given to `start_link/5`.
@@ -85,7 +87,9 @@ defmodule Hare.RPC.Server do
   or calling `terminate/2`.
   """
   @callback init(initial :: term) ::
-              GenServer.on_start
+              {:ok, state} |
+              :ignore |
+              {:stop, reason :: term}
 
   @doc """
   Called every time the channel has been opened and the queue, exchange, and
@@ -109,8 +113,8 @@ defmodule Hare.RPC.Server do
               {:stop, reason :: term, state}
 
   @doc """
-  Called when the AMQP server has registered the process as a RPC server and it
-  will start to receive requests.
+  Called when the AMQP server has registered the process as a consumer and it
+  will start to receive messages.
 
   Returning `{:noreply, state}` will causes the process to enter the main loop
   with the given state.
@@ -123,26 +127,30 @@ defmodule Hare.RPC.Server do
               {:stop, reason :: term, state}
 
   @doc """
-  Called when a request is received from the queue.
+  Called when a message is delivered from the queue.
 
   The arguments are the message's payload, some metadata and the internal state.
   The metadata is a map containing all metadata given by the adapter when receiving
   the message plus the `:exchange` and `:queue` values received at the `connect/2`
   callback.
 
-  Returning `{:reply, response, state}` will respond inmediately to the client
-  and enter the main loop with the given state.
+  Returning `{:reply, :ack | :nack | :reject, state}` will ack, nack or reject
+  the message.
 
-  Returning `{:noreply, state}` will enter the main loop with the given state
-  without responding. Therefore, `Hare.RPC.Server.reply/2` should be used to
-  respond to the client.
+  Returning `{:reply, :ack | :nack | :reject, opts, state}` will ack, nack or reject
+  the message with the given opts.
+
+  Returning `{:noreply, state}` will do nothing, and therefore the message should
+  be acknowledged by using `Hare.Consumer.ack/2`, `Hare.Consumer.nack/2` or
+  `Hare.Consumer.reject/2`.
 
   Returning `{:stop, reason, state}` will terminate the main loop and call
   `terminate(reason, state)` before the process exists with reason `reason`.
   """
-  @callback handle_request(payload, meta, state) ::
+  @callback handle_message(payload, meta, state) ::
+              {:reply, action, state} |
+              {:reply, action, opts :: Keyword.t, state} |
               {:noreply, state} |
-              {:reply, response :: binary, state} |
               {:stop, reason :: term, state}
 
   @doc """
@@ -159,6 +167,7 @@ defmodule Hare.RPC.Server do
               {:noreply, state} |
               {:stop, reason :: term, state}
 
+
   @doc """
   This callback is the same as the `GenServer` equivalent and is called when the
   process terminates. The first argument is the reason the process is about
@@ -169,7 +178,7 @@ defmodule Hare.RPC.Server do
 
   defmacro __using__(_opts \\ []) do
     quote location: :keep do
-      @behaviour Hare.RPC.Server
+      @behaviour Hare.Consumer
 
       @doc false
       def init(initial),
@@ -184,8 +193,8 @@ defmodule Hare.RPC.Server do
         do: {:noreply, state}
 
       @doc false
-      def handle_request(_payload, _meta, state),
-        do: {:noreply, state}
+      def handle_message(_payload, _meta, state),
+        do: {:reply, :ack, state}
 
       @doc false
       def handle_info(_message, state),
@@ -196,14 +205,14 @@ defmodule Hare.RPC.Server do
         do: :ok
 
       defoverridable [init: 1, connected: 2, terminate: 2,
-                      handle_ready: 2, handle_request: 3, handle_info: 2]
+                      handle_ready: 2, handle_message: 3, handle_info: 2]
     end
   end
 
   use Connection
 
   alias __MODULE__.{Declaration, State}
-  alias Hare.Core.{Chan, Queue, Exchange}
+  alias Hare.Core.{Chan, Queue}
 
   @context Hare.Context
 
@@ -211,8 +220,10 @@ defmodule Hare.RPC.Server do
                    exchange: Hare.Context.Action.DeclareExchange.config,
                    bind:     Keyword.t]
 
+  @type opts :: Hare.Adapter.opts
+
   @doc """
-  Starts a `Hare.RPC.Server` process linked to the current process.
+  Starts a `Hare.Consumer` process linked to the current process.
 
   This function is used to start a `Hare.Consumer` process in a supervision
   tree. The process will be started by calling `init` with the given initial
@@ -234,16 +245,20 @@ defmodule Hare.RPC.Server do
     Connection.start_link(__MODULE__, args, opts)
   end
 
-  @doc "Responds a request given its meta"
-  @spec reply(meta, response :: binary) :: :ok
-  def reply(meta, response) do
-    %{exchange:       exchange,
-      reply_to:       target,
-      correlation_id: correlation_id} = meta
+  @doc "Ack's a message given its meta"
+  @spec ack(meta, opts) :: :ok
+  def ack(%{queue: queue} = meta, opts \\ []),
+    do: Queue.ack(queue, meta, opts)
 
-    opts = [correlation_id: correlation_id]
-    Exchange.publish(exchange, response, target, opts)
-  end
+  @doc "Nack's a message given its meta"
+  @spec nack(meta, opts) :: :ok
+  def nack(%{queue: queue} = meta, opts \\ []),
+    do: Queue.nack(queue, meta, opts)
+
+  @doc "Rejects a message given its meta"
+  @spec reject(meta, opts) :: :ok
+  def reject(%{queue: queue} = meta, opts \\ []),
+    do: Queue.reject(queue, meta, opts)
 
   @doc false
   def init({mod, conn, config, context, initial}) do
@@ -260,7 +275,7 @@ defmodule Hare.RPC.Server do
   def connect(_info, %{conn: conn, declaration: declaration} = state) do
     with {:ok, chan}            <- Chan.open(conn),
          {:ok, queue, exchange} <- Declaration.run(declaration, chan),
-         {:ok, new_queue}       <- Queue.consume(queue, no_ack: true) do
+         {:ok, new_queue}       <- Queue.consume(queue) do
       handle_connected(state, chan, new_queue, exchange)
     else
       {:error, reason} -> {:stop, reason}
@@ -332,12 +347,32 @@ defmodule Hare.RPC.Server do
   defp handle_mod_message(payload, meta, %{mod: mod, given: given} = state) do
     completed_meta = complete(meta, state)
 
-    case mod.handle_request(payload, completed_meta, given) do
-      {:noreply, new_given} ->
+    case mod.handle_message(payload, completed_meta, given) do
+      {:reply, :ack, new_given} ->
+        ack(completed_meta)
         {:noreply, State.set(state, new_given)}
 
-      {:reply, response, new_given} ->
-        reply(completed_meta, response)
+      {:reply, :nack, new_given} ->
+        nack(completed_meta)
+        {:noreply, State.set(state, new_given)}
+
+      {:reply, :reject, new_given} ->
+        reject(completed_meta)
+        {:noreply, State.set(state, new_given)}
+
+      {:reply, :ack, opts, new_given} ->
+        ack(completed_meta, opts)
+        {:noreply, State.set(state, new_given)}
+
+      {:reply, :nack, opts, new_given} ->
+        nack(completed_meta, opts)
+        {:noreply, State.set(state, new_given)}
+
+      {:reply, :reject, opts, new_given} ->
+        reject(completed_meta, opts)
+        {:noreply, State.set(state, new_given)}
+
+      {:noreply, new_given} ->
         {:noreply, State.set(state, new_given)}
 
       {:stop, reason, new_given} ->

@@ -1,4 +1,6 @@
 defmodule Hare.Context.Action.Helper.Validations do
+  @moduledoc false
+
   defmacro validate(config, field, format, opts \\ []) do
     guard          = :"is_#{format}"
     error_reason   = :"not_#{format}"

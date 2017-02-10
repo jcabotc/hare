@@ -1,4 +1,6 @@
 defmodule Hare.Adapter.Sandbox.Conn do
+  @moduledoc false
+
   alias __MODULE__
   alias __MODULE__.{Pid, History, Stack}
 

@@ -1,4 +1,38 @@
 defmodule Hare.Context.Action.DeclareQueue do
+  @moduledoc """
+  This module implements a `Hare.Context.Action` behaviour to
+  declare a queue on the AMQP server.
+
+  ## Config
+
+  Configuration must be a `Keyword.t` with the following fields:
+
+    * `:name` - the name of the queue
+    * `:opts` - (defaults to `[]`) the options to be given to the adapter
+    * `:export_as` - (defaults to `nil`) the key to export the declared queue to
+
+  The `:export_as` config allows the action to export a `Hare.Core.Queue`
+  struct to be used later by other steps (for example: to bind it to an exchange)
+
+  ```
+  alias Hare.Context.Action.DeclareQueue
+
+  config = [name: "foo",
+            opts: [durable: true],
+            export_as: :my_queue]
+
+  exports = %{}
+
+  DeclareQueue.run(chan, config, exports)
+  # => {:ok, %{...}, %{my_queue: %Hare.Core.Queue{chan: chan, name: "foo"}}}
+  ```
+  """
+
+  @typedoc "The action configuration"
+  @type config :: %{required(:name)      => binary,
+                    optional(:opts)      => Keyword.t,
+                    optional(:export_as) => atom}
+
   @behaviour Hare.Context.Action
 
   alias Hare.Core.Queue

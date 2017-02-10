@@ -1,11 +1,11 @@
-defmodule Hare.RPC.Server.State do
+defmodule Hare.Publisher.State do
   @moduledoc false
 
   alias __MODULE__
 
   defstruct [:conn, :declaration,
              :mod, :given,
-             :chan, :ref, :queue, :exchange,
+             :chan, :ref, :exchange,
              :status]
 
   def new(conn, declaration, mod, given) do
@@ -16,23 +16,22 @@ defmodule Hare.RPC.Server.State do
            status:      :not_connected}
   end
 
-  def connected(%State{} = state, chan, ref, queue, exchange, given) do
+  def connected(%State{} = state, chan, ref, exchange, new_given) do
     %{state | chan:     chan,
               ref:      ref,
-              queue:    queue,
               exchange: exchange,
-              given:    given,
-              status:   :connected}
+              status:   :connected,
+              given:    new_given}
   end
 
   def chan_down(%State{} = state) do
     %{state | chan:     nil,
               ref:      nil,
-              queue:    nil,
               exchange: nil,
               status:   :not_connected}
   end
 
-  def set(%State{} = state, given),
-    do: %{state | given: given}
+  def set(%State{} = state, given) do
+    %{state | given: given}
+  end
 end
