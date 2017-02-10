@@ -64,7 +64,7 @@ If [available in Hex](https://hex.pm/docs/publish), the package can be installed
     ```elixir
     def deps do
       [{:amqp, "~> 0.1.4", hex: :amqp19},
-       {:hare, "~> 0.1.7"}]
+       {:hare, "~> 0.1.8"}]
     end
     ```
 
