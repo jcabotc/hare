@@ -44,10 +44,27 @@ defmodule Hare.RPC.Client.DeclarationTest do
     assert {:fake_response_queue, ^chan}   = response_queue
   end
 
-  test "parse/2 on :exchange config error" do
+  test "parse/2 on :exchange empty config" do
     config = []
-    assert {:error, {:not_present, :exchange}} == Declaration.parse(config, ValidContext)
 
+    assert {:ok, declaration} = Declaration.parse(config, ValidContext)
+
+    assert declaration.context == ValidContext
+    assert declaration.steps == [declare_server_named_queue: [
+                                   export_as: :response_queue,
+                                   opts:      [auto_delete: true, exclusive: true]],
+                                 default_exchange: [
+                                   export_as: :request_exchange]]
+
+    chan   = :fake_chan
+    result = Declaration.run(declaration, chan)
+
+    assert {:ok, response_queue, request_exchange} = result
+    assert {:fake_request_exchange, ^chan} = request_exchange
+    assert {:fake_response_queue, ^chan}   = response_queue
+  end
+
+  test "parse/2 on :exchange config error" do
     config = [exchange: "foo"]
     assert {:error, {:not_keyword_list, :exchange}} == Declaration.parse(config, ValidContext)
   end
