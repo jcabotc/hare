@@ -25,9 +25,9 @@ defmodule Hare.RPC.Server.Declaration do
   defp steps(config) do
     with {:ok, exchange_config} <- extract(config, :exchange),
          {:ok, queue_config}    <- extract(config, :queue) do
-      bind_opts = Keyword.get(config, :bind, [])
+      binds_opts = get_binds(config)
 
-      {:ok, build_steps(exchange_config, queue_config, bind_opts)}
+      {:ok, build_steps(exchange_config, queue_config, binds_opts)}
     end
   end
 
@@ -41,11 +41,21 @@ defmodule Hare.RPC.Server.Declaration do
     end
   end
 
-  defp build_steps(exchange_config, queue_config, bind_opts) do
-    [@response_exchange_step,
-     declare_exchange: [{:export_as, :request_exchange} | exchange_config],
-     declare_queue:    [{:export_as, :request_queue}    | queue_config],
-     bind:             [{:opts, bind_opts} | @bind_exported_resources]]
+  def get_binds(config) do
+    with [] <- Keyword.get_values(config, :bind),
+      do: [[]]
+  end
+
+  defp build_steps(exchange_config, queue_config, binds_opts) do
+    resources = [@response_exchange_step,
+                 declare_exchange: [{:export_as, :request_exchange} | exchange_config],
+                 declare_queue:    [{:export_as, :request_queue}    | queue_config]]
+
+    binds = Enum.map binds_opts, fn (bind_opts) ->
+      {:bind, [{:opts, bind_opts} | @bind_exported_resources]}
+    end
+
+    resources ++ binds
   end
 
   def run(%Declaration{steps: steps, context: context}, chan) do

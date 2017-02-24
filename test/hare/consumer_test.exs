@@ -54,7 +54,8 @@ defmodule Hare.ConsumerTest do
                          opts: [durable: true]],
               queue: [name: "bar",
                       opts: []],
-              bind: [routing_key: "baz"]]
+              bind: [routing_key: "baz"],
+              bind: [routing_key: "qux"]]
 
     {:ok, rpc_server} = TestConsumer.start_link(conn, config, self())
 
@@ -92,6 +93,9 @@ defmodule Hare.ConsumerTest do
             {:bind,
               [given_chan_1, "bar", "foo", [routing_key: "baz"]],
               :ok},
+            {:bind,
+              [given_chan_1, "bar", "foo", [routing_key: "qux"]],
+              :ok},
             {:consume,
               [given_chan_1, "bar", ^rpc_server, []],
               {:ok, _consumer_tag}},
@@ -107,7 +111,7 @@ defmodule Hare.ConsumerTest do
             {:reject,
               [given_chan_1, _meta_reject, [requeue: true]],
               :ok}
-           ] = Adapter.Backdoor.last_events(history, 9)
+           ] = Adapter.Backdoor.last_events(history, 10)
 
     Adapter.Backdoor.unlink(given_chan_1)
     Adapter.Backdoor.crash(given_chan_1)
@@ -132,13 +136,16 @@ defmodule Hare.ConsumerTest do
             {:bind,
               [given_chan_2, "bar", "foo", [routing_key: "baz"]],
               :ok},
+            {:bind,
+              [given_chan_2, "bar", "foo", [routing_key: "qux"]],
+              :ok},
             {:consume,
               [given_chan_2, "bar", ^rpc_server, []],
               {:ok, _consumer_tag}},
             {:monitor_channel,
               [given_chan_2],
               _ref}
-           ] = Adapter.Backdoor.last_events(history, 6)
+           ] = Adapter.Backdoor.last_events(history, 7)
 
     assert given_chan_1 != given_chan_2
     assert given_chan_1.conn == given_chan_2.conn
