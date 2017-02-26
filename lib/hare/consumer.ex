@@ -92,27 +92,6 @@ defmodule Hare.Consumer do
               {:stop, reason :: term}
 
   @doc """
-  Called every time the channel has been opened and the queue, exchange, and
-  binding has been declared.
-
-  It is called with two arguments: some metadata and the process' internal state.
-
-  The metadata is a map with a two fields:
-
-    * `:queue` - the `Hare.Core.Queue` to consume from
-    * `:exchange` - the `Hare.Core.Exchange` the queue is bound to
-
-  Returning `{:noreply, state}` will cause the process to enter the main loop
-  with `state` as its internal state.
-
-  Returning `{:stop, reason, state}` will terminate the loop and call
-  `terminate(reason, state)` before the process exists with reason `reason`.
-  """
-  @callback connected(meta, state) ::
-              {:noreply, state} |
-              {:stop, reason :: term, state}
-
-  @doc """
   Called when the AMQP server has registered the process as a consumer and it
   will start to receive messages.
 
@@ -185,10 +164,6 @@ defmodule Hare.Consumer do
         do: {:ok, initial}
 
       @doc false
-      def connected(_meta, state),
-        do: {:noreply, state}
-
-      @doc false
       def handle_ready(_meta, state),
         do: {:noreply, state}
 
@@ -204,7 +179,7 @@ defmodule Hare.Consumer do
       def terminate(_reason, _state),
         do: :ok
 
-      defoverridable [init: 1, connected: 2, terminate: 2,
+      defoverridable [init: 1, terminate: 2,
                       handle_ready: 2, handle_message: 3, handle_info: 2]
     end
   end

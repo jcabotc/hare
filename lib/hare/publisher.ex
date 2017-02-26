@@ -194,7 +194,7 @@ defmodule Hare.Publisher do
   """
   @spec publish(pid, payload, routing_key, opts) :: :ok
   def publish(client, payload, routing_key \\ "", opts \\ []),
-    do: Connection.cast(client, {:publication, payload, routing_key, opts})
+    do: Hare.Role.cast(client, {:publication, payload, routing_key, opts})
 
   @doc false
   def init(_next, {mod, config, context, initial}) do
