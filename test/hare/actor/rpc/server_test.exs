@@ -1,6 +1,8 @@
 defmodule Hare.Actor.RPC.ServerTest do
   use ExUnit.Case, async: true
 
+  alias Hare.Support.TestExtension
+
   alias Hare.Core.Conn
   alias Hare.Actor.RPC.Server
 
@@ -50,7 +52,8 @@ defmodule Hare.Actor.RPC.ServerTest do
   test "echo server" do
     {history, conn} = build_conn()
 
-    config = [exchange: [name: "foo",
+    config = [extensions: [TestExtension],
+              exchange: [name: "foo",
                          type: :fanout,
                          opts: [durable: true]],
               queue: [name: "bar",
@@ -65,6 +68,9 @@ defmodule Hare.Actor.RPC.ServerTest do
 
     send(rpc_server, :some_message)
     assert_receive {:info, :some_message}
+
+    send(rpc_server, {:test_extension, self()})
+    assert_receive :test_extension_success
 
     payload = "implicit - a binary message"
     meta    = %{reply_to: "response_queue", correlation_id: 10}

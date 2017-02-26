@@ -215,9 +215,11 @@ defmodule Hare.Actor.Consumer do
   @spec start_link(module, pid, config, initial :: term, GenServer.options) :: GenServer.on_start
   def start_link(mod, conn, config, initial, opts \\ []) do
     {context, opts} = Keyword.pop(opts, :context, @context)
-    layers          = [__MODULE__]
+    extensions      = Keyword.get(config, :extensions, [])
 
-    args = {mod, config, context, initial}
+    layers = extensions ++ [__MODULE__]
+    args   = {mod, config, context, initial}
+
     Hare.Role.start_link(conn, layers, args, opts)
   end
 

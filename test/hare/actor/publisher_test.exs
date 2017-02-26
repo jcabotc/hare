@@ -1,6 +1,8 @@
 defmodule Hare.Actor.PublisherTest do
   use ExUnit.Case, async: true
 
+  alias Hare.Support.TestExtension
+
   alias Hare.Core.Conn
   alias Hare.Actor.Publisher
 
@@ -47,23 +49,27 @@ defmodule Hare.Actor.PublisherTest do
   test "publication" do
     {history, conn} = build_conn()
 
-    config = [exchange: [name: "foo",
+    config = [extensions: [TestExtension],
+              exchange: [name: "foo",
                          type: :fanout,
                          opts: [durable: true]]]
 
-    {:ok, rpc_client} = TestPublisher.start_link(conn, config, self())
+    {:ok, publisher} = TestPublisher.start_link(conn, config, self())
 
-    send(rpc_client, :some_message)
+    send(publisher, :some_message)
     assert_receive {:info, :some_message}
+
+    send(publisher, {:test_extension, self()})
+    assert_receive :test_extension_success
 
     payload     = "some data"
     routing_key = "the key"
 
-    Process.unlink(rpc_client)
-    assert :ok == TestPublisher.publish(rpc_client, payload, routing_key, [])
-    assert :ok == TestPublisher.publish(rpc_client, payload, routing_key, hook: "modify_publication")
-    assert :ok == TestPublisher.publish(rpc_client, payload, routing_key, hook: "ignore")
-    assert :ok == TestPublisher.publish(rpc_client, payload, routing_key, hook: "stop")
+    Process.unlink(publisher)
+    assert :ok == TestPublisher.publish(publisher, payload, routing_key, [])
+    assert :ok == TestPublisher.publish(publisher, payload, routing_key, hook: "modify_publication")
+    assert :ok == TestPublisher.publish(publisher, payload, routing_key, hook: "ignore")
+    assert :ok == TestPublisher.publish(publisher, payload, routing_key, hook: "stop")
 
     Process.sleep(20)
 

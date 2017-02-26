@@ -1,6 +1,8 @@
 defmodule Hare.Actor.RPC.ClientTest do
   use ExUnit.Case, async: true
 
+  alias Hare.Support.TestExtension
+
   alias Hare.Core.Conn
   alias Hare.Actor.RPC.Client
 
@@ -52,7 +54,8 @@ defmodule Hare.Actor.RPC.ClientTest do
   test "echo server" do
     {history, conn} = build_conn()
 
-    config = [exchange: [name: "foo",
+    config = [extensions: [TestExtension],
+              exchange: [name: "foo",
                          type: :fanout,
                          opts: [durable: true]]]
 
@@ -68,6 +71,9 @@ defmodule Hare.Actor.RPC.ClientTest do
 
     send(rpc_client, :some_message)
     assert_receive {:info, :some_message}
+
+    send(rpc_client, {:test_extension, self()})
+    assert_receive :test_extension_success
 
     payload     = "the request"
     routing_key = "the key"

@@ -12,8 +12,8 @@ defmodule Hare.Consumer do
     end
   end
 
-  defdelegate start_link(mod, conn, config, initial),             to: Hare.Actor.Consumer
-  defdelegate start_link(mod, conn, config, initial, opts \\ []), to: Hare.Actor.Consumer
+  defdelegate start_link(mod, conn, config, initial),       to: Hare.Actor.Consumer
+  defdelegate start_link(mod, conn, config, initial, opts), to: Hare.Actor.Consumer
 
   defdelegate ack(meta),       to: Hare.Actor.Consumer
   defdelegate ack(meta, opts), to: Hare.Actor.Consumer

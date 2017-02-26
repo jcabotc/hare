@@ -1,6 +1,8 @@
 defmodule Hare.Actor.ConsumerTest do
   use ExUnit.Case, async: true
 
+  alias Hare.Support.TestExtension
+
   alias Hare.Core.Conn
   alias Hare.Actor.Consumer
 
@@ -49,7 +51,8 @@ defmodule Hare.Actor.ConsumerTest do
   test "echo server" do
     {history, conn} = build_conn()
 
-    config = [exchange: [name: "foo",
+    config = [extensions: [TestExtension],
+              exchange: [name: "foo",
                          type: :direct,
                          opts: [durable: true]],
               queue: [name: "bar",
@@ -57,23 +60,26 @@ defmodule Hare.Actor.ConsumerTest do
               bind: [routing_key: "baz"],
               bind: [routing_key: "qux"]]
 
-    {:ok, rpc_server} = TestConsumer.start_link(conn, config, self())
+    {:ok, consumer} = TestConsumer.start_link(conn, config, self())
 
-    send(rpc_server, {:consume_ok, %{bar: "baz"}})
+    send(consumer, {:consume_ok, %{bar: "baz"}})
     assert_receive {:ready, %{bar: "baz", queue: queue, exchange: exchange}}
     assert %{chan: chan, name: "bar"} = queue
     assert %{chan: ^chan, name: "foo"} = exchange
 
-    send(rpc_server, :some_message)
+    send(consumer, :some_message)
     assert_receive {:info, :some_message}
+
+    send(consumer, {:test_extension, self()})
+    assert_receive :test_extension_success
 
     payload = "some data"
     meta    = %{}
 
-    send(rpc_server, {:deliver, "ack - #{payload}", meta})
-    send(rpc_server, {:deliver, "nack - #{payload}", meta})
-    send(rpc_server, {:deliver, "reject - #{payload}", meta})
-    send(rpc_server, {:deliver, payload, meta})
+    send(consumer, {:deliver, "ack - #{payload}", meta})
+    send(consumer, {:deliver, "nack - #{payload}", meta})
+    send(consumer, {:deliver, "reject - #{payload}", meta})
+    send(consumer, {:deliver, payload, meta})
 
     expected_meta = Map.merge(meta, %{queue: queue, exchange: exchange})
     assert_receive {:message, ^payload,                ^expected_meta}
@@ -97,7 +103,7 @@ defmodule Hare.Actor.ConsumerTest do
               [given_chan_1, "bar", "foo", [routing_key: "qux"]],
               :ok},
             {:consume,
-              [given_chan_1, "bar", ^rpc_server, []],
+              [given_chan_1, "bar", ^consumer, []],
               {:ok, _consumer_tag}},
             {:monitor_channel,
               [given_chan_1],
@@ -120,7 +126,7 @@ defmodule Hare.Actor.ConsumerTest do
     payload = "another data"
     meta    = %{}
 
-    send(rpc_server, {:deliver, payload, meta})
+    send(consumer, {:deliver, payload, meta})
     assert_receive {:message, ^payload, _meta}
     Process.sleep(10)
 
@@ -140,7 +146,7 @@ defmodule Hare.Actor.ConsumerTest do
               [given_chan_2, "bar", "foo", [routing_key: "qux"]],
               :ok},
             {:consume,
-              [given_chan_2, "bar", ^rpc_server, []],
+              [given_chan_2, "bar", ^consumer, []],
               {:ok, _consumer_tag}},
             {:monitor_channel,
               [given_chan_2],
