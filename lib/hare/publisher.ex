@@ -206,7 +206,7 @@ defmodule Hare.Publisher do
 
   defp build_declaration(config, context) do
     with {:error, reason} <- Declaration.parse(config, context) do
-      {:stop, reason}
+      {:stop, {:config_error, reason, config}}
     end
   end
 
@@ -220,8 +220,12 @@ defmodule Hare.Publisher do
 
   @doc false
   def declare(chan, _next, %{declaration: declaration} = state) do
-    with {:ok, exchange} <- Declaration.run(declaration, chan) do
-      {:ok, State.declared(state, exchange)}
+    case Declaration.run(declaration, chan) do
+      {:ok, exchange} ->
+        {:ok, State.declared(state, exchange)}
+
+      {:error, reason} ->
+        {:stop, reason, state}
     end
   end
 
