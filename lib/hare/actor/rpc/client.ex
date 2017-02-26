@@ -235,7 +235,7 @@ defmodule Hare.Actor.RPC.Client do
 
       @doc false
       def on_response(response, _from, state),
-        do: {:reply, response, state}
+        do: {:reply, {:ok, response}, state}
 
       @doc false
       def handle_info(_message, state),
@@ -293,8 +293,7 @@ defmodule Hare.Actor.RPC.Client do
   specified (5 seconds by default)
   """
   @spec request(pid, payload, routing_key, opts, timeout) ::
-          {:ok, response :: binary} |
-          {:error, reason :: term}
+          response :: term
   def request(client, payload, routing_key \\ "", opts \\ [], timeout \\ 5000),
     do: Hare.Role.call(client, {:request, payload, routing_key, opts}, timeout)
 
@@ -350,10 +349,10 @@ defmodule Hare.Actor.RPC.Client do
         {:noreply, State.set(state, new_given, correlation_id, from)}
 
       {:reply, response, new_given} ->
-        {:reply, {:ok, response}, State.set(state, new_given)}
+        {:reply, response, State.set(state, new_given)}
 
       {:stop, reason, response, new_given} ->
-        {:stop, reason, {:ok, response}, State.set(state, new_given)}
+        {:stop, reason, response, State.set(state, new_given)}
 
       {:stop, reason, new_given} ->
         {:stop, reason, State.set(state, new_given)}
@@ -434,14 +433,14 @@ defmodule Hare.Actor.RPC.Client do
   defp handle_mod_on_response(payload, from, %{mod: mod, given: given} = state) do
     case mod.on_response(payload, from, given) do
       {:reply, response, new_given} ->
-        GenServer.reply(from, {:ok, response})
+        GenServer.reply(from, response)
         {:noreply, State.set(state, new_given)}
 
       {:noreply, new_given} ->
         {:noreply, State.set(state, new_given)}
 
       {:stop, reason, response, new_given} ->
-        GenServer.reply(from, {:ok, response})
+        GenServer.reply(from, response)
         {:stop, reason, State.set(state, new_given)}
 
       {:stop, reason, new_given} ->

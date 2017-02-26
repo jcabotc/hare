@@ -25,8 +25,8 @@ defmodule Hare.Actor.RPC.ClientTest do
     def before_request(payload, routing_key, opts, _from, pid) do
       case Keyword.fetch(opts, :hook) do
         {:ok, "modify_request"}      -> {:ok, "ASDF - #{payload}", routing_key, [bar: "baz"], pid}
-        {:ok, "reply: " <> response} -> {:reply, response, pid}
-        {:ok, "stop: " <> response}  -> {:stop, "a_reason", response, pid}
+        {:ok, "reply: " <> response} -> {:reply, {:ok, response}, pid}
+        {:ok, "stop: " <> response}  -> {:stop, "a_reason", {:ok, response}, pid}
         _otherwise                   -> {:ok, pid}
       end
     end
@@ -34,8 +34,8 @@ defmodule Hare.Actor.RPC.ClientTest do
     def on_response(response, _from, pid) do
       case response do
         "noreply"  -> {:noreply, pid}
-        "modify"   -> {:reply, "modified_response", pid}
-        _otherwise -> {:reply, response, pid}
+        "modify"   -> {:reply, {:ok, "modified_response"}, pid}
+        _otherwise -> {:reply, {:ok, response}, pid}
       end
     end
 
