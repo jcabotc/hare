@@ -1,11 +1,15 @@
 defmodule Hare.Role do
   use Connection
 
-  alias __MODULE__.State
+  alias __MODULE__.{State, Layer}
 
-  def start_link(conn, layers, initial, opts \\ []) do
+  @base_layers [Layer.Base]
+
+  def start_link(conn, given_layers, initial, opts \\ []) do
+    {base_layers, opts} = Keyword.pop(opts, :base_layers, @base_layers)
+    layers              = given_layers ++ base_layers
+
     args = {conn, layers, initial}
-
     Connection.start_link(__MODULE__, args, opts)
   end
 

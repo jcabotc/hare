@@ -60,10 +60,12 @@ defmodule Hare.RoleTest do
 
     {:ok, conn} = Hare.Conn.start_link(config)
 
-    test_pid = self()
-    layers   = [FrontLayer, BackLayer]
+    test_pid     = self()
+    given_layers = [FrontLayer]
+    base_layers  = [BackLayer]
+    opts         = [base_layers: base_layers]
 
-    {:ok, role} = Role.start_link(conn, layers, test_pid)
+    {:ok, role} = Role.start_link(conn, given_layers, test_pid, opts)
     assert_receive {:channel_front, chan_1}
     assert_receive {:declare_back,  ^chan_1}
 
