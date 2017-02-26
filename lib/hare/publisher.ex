@@ -84,24 +84,6 @@ defmodule Hare.Publisher do
               {:stop, reason :: term}
 
   @doc """
-  Called every time the channel has been opened and the exchange declared.
-
-  It is called with two arguments: some metadata and the process' internal state.
-
-  The metadata is a map with a single key `:exchange` whose value is the
-  `Hare.Core.Exchange` struct just declared.
-
-  Returning `{:noreply, state}` will cause the process to enter the main loop
-  with `state` as its internal state.
-
-  Returning `{:stop, reason, state}` will terminate the loop and call
-  `terminate(reason, state)` before the process exists with reason `reason`.
-  """
-  @callback connected(meta, state) ::
-              {:noreply, state} |
-              {:stop, reason :: term, state}
-
-  @doc """
   Called before a message will be published to the exchange.
 
   It receives as argument the message payload, the routing key, the options
@@ -158,10 +140,6 @@ defmodule Hare.Publisher do
         do: {:ok, initial}
 
       @doc false
-      def connected(_meta, state),
-        do: {:noreply, state}
-
-      @doc false
       def handle_publication(_payload, _routing_key, _meta, state),
         do: {:ok, state}
 
@@ -173,15 +151,15 @@ defmodule Hare.Publisher do
       def terminate(_reason, _state),
         do: :ok
 
-      defoverridable [init: 1, terminate: 2, connected: 2,
+      defoverridable [init: 1, terminate: 2,
                       handle_publication: 4, handle_info: 2]
     end
   end
 
-  use Connection
+  use Hare.Role.Layer
 
   alias __MODULE__.{Declaration, State}
-  alias Hare.Core.{Chan, Exchange}
+  alias Hare.Core.{Exchange}
 
   @context Hare.Context
 
@@ -205,9 +183,10 @@ defmodule Hare.Publisher do
   @spec start_link(module, pid, config, initial :: term, GenServer.options) :: GenServer.on_start
   def start_link(mod, conn, config, initial, opts \\ []) do
     {context, opts} = Keyword.pop(opts, :context, @context)
-    args = {mod, conn, config, context,  initial}
+    layers          = [__MODULE__]
 
-    Connection.start_link(__MODULE__, args, opts)
+    args = {mod, config, context, initial}
+    Hare.Role.start_link(conn, layers, args, opts)
   end
 
   @doc """
@@ -218,48 +197,39 @@ defmodule Hare.Publisher do
     do: Connection.cast(client, {:publication, payload, routing_key, opts})
 
   @doc false
-  def init({mod, conn, config, context, initial}) do
-    with {:ok, declaration} <- Declaration.parse(config, context),
-         {:ok, given}       <- mod.init(initial) do
-      {:connect, :init, State.new(conn, declaration, mod, given)}
-    else
-      {:error, reason} -> {:stop, {:config_error, reason, config}}
-      other            -> other
+  def init(_next, {mod, config, context, initial}) do
+    with {:ok, declaration} <- build_declaration(config, context),
+         {:ok, given}       <- mod_init(mod, initial) do
+      {:ok, State.new(declaration, mod, given)}
+    end
+  end
+
+  defp build_declaration(config, context) do
+    with {:error, reason} <- Declaration.parse(config, context) do
+      {:stop, reason}
+    end
+  end
+
+  defp mod_init(mod, initial) do
+    case mod.init(initial) do
+      {:ok, given}    -> {:ok, given}
+      :ignore         -> :ignore
+      {:stop, reason} -> {:stop, reason}
     end
   end
 
   @doc false
-  def connect(_info, %{conn: conn, declaration: declaration} = state) do
-    with {:ok, chan}     <- Chan.open(conn),
-         {:ok, exchange} <- Declaration.run(declaration, chan) do
-      handle_connected(state, chan, exchange)
-    else
-      {:error, reason} -> {:stop, reason}
-    end
-  end
-
-  defp handle_connected(%{mod: mod, given: given} = state, chan, exchange) do
-    ref  = Chan.monitor(chan)
-    meta = complete(%{}, state)
-
-    case mod.connected(meta, given) do
-      {:noreply, new_given} ->
-        {:ok, State.connected(state, chan, ref, exchange, new_given)}
-
-      {:stop, reason, new_given} ->
-        {:stop, reason, State.connected(state, chan, ref, exchange, new_given)}
+  def declare(chan, _next, %{declaration: declaration} = state) do
+    with {:ok, exchange} <- Declaration.run(declaration, chan) do
+      {:ok, State.declared(state, exchange)}
     end
   end
 
   @doc false
-  def disconnect(_info, state),
-    do: {:stop, :normal, state}
-
-  @doc false
-  def handle_cast({:publication, payload, routing_key, opts}, %{mod: mod, given: given} = state) do
-    case mod.handle_publication(payload, routing_key, opts, given) do
+  def handle_cast({:publication, payload, key, opts}, _next, %{mod: mod, given: given} = state) do
+    case mod.handle_publication(payload, key, opts, given) do
       {:ok, new_given} ->
-        perform(payload, routing_key, opts, state)
+        perform(payload, key, opts, state)
         {:noreply, State.set(state, new_given)}
 
       {:ok, new_payload, new_routing_key, new_opts, new_given} ->
@@ -275,10 +245,7 @@ defmodule Hare.Publisher do
   end
 
   @doc false
-  def handle_info({:DOWN, ref, _, _, _reason}, %{status: :connected, ref: ref} = state) do
-    {:connect, :down, State.chan_down(state)}
-  end
-  def handle_info(message, %{mod: mod, given: given} = state) do
+  def handle_info(message, _next, %{mod: mod, given: given} = state) do
     case mod.handle_info(message, given) do
       {:noreply, new_given} ->
         {:noreply, State.set(state, new_given)}
@@ -289,20 +256,10 @@ defmodule Hare.Publisher do
   end
 
   @doc false
-  def terminate(reason, %{status: :connected, chan: chan} = state) do
-    mod_terminate(reason, state)
-    Chan.close(chan)
+  def terminate(reason, %{mod: mod, given: given}) do
+    mod.terminate(reason, given)
   end
-  def terminate(reason, state) do
-    mod_terminate(reason, state)
-  end
-
-  defp mod_terminate(reason, %{mod: mod, given: given}),
-    do: mod.terminate(reason, given)
 
   defp perform(payload, routing_key, opts, %{exchange: exchange}),
     do: Exchange.publish(exchange, payload, routing_key, opts)
-
-  defp complete(meta, %{exchange: exchange}),
-    do: Map.put(meta, :exchange, exchange)
 end
