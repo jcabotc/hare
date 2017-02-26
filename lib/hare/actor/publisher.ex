@@ -24,10 +24,10 @@ defmodule Hare.Actor.Publisher do
       {:ok, %{last_ignored: false}}
     end
 
-    def handle_publication(_payload, _routing_key, _opts, %{last_ignored: false}) do
+    def before_publication(_payload, _routing_key, _opts, %{last_ignored: false}) do
       {:ignore, %{last_ignored: true}}
     end
-    def handle_publication(_payload, _routing_key, _opts, %{last_ignored: true}) do
+    def before_publication(_payload, _routing_key, _opts, %{last_ignored: true}) do
       {:ok, %{last_ignored: false}}
     end
   end
@@ -103,10 +103,26 @@ defmodule Hare.Actor.Publisher do
   main loop and call `terminate(reason, state)` before the process exists with
   reason `reason`.
   """
-  @callback handle_publication(payload, routing_key, opts :: term, state) ::
+  @callback before_publication(payload, routing_key, opts :: term, state) ::
               {:ok, state} |
               {:ok, payload, routing_key, opts :: term, state} |
               {:ignore, state} |
+              {:stop, reason :: term, state}
+
+  @doc """
+  Called after a message has been published to the exchange.
+
+  It receives as argument the message payload, the routing key, the options
+  for that publication and the internal state.
+
+  Returning `{:ok, state}` will enter the main loop with the given state.
+
+  Returning `{:stop, reason, state}` will terminate the
+  main loop and call `terminate(reason, state)` before the process exists with
+  reason `reason`.
+  """
+  @callback after_publication(payload, routing_key, opts :: term, state) ::
+              {:ok, state} |
               {:stop, reason :: term, state}
 
   @doc """
@@ -140,7 +156,11 @@ defmodule Hare.Actor.Publisher do
         do: {:ok, initial}
 
       @doc false
-      def handle_publication(_payload, _routing_key, _meta, state),
+      def before_publication(_payload, _routing_key, _meta, state),
+        do: {:ok, state}
+
+      @doc false
+      def after_publication(_payload, _routing_key, _meta, state),
         do: {:ok, state}
 
       @doc false
@@ -152,7 +172,8 @@ defmodule Hare.Actor.Publisher do
         do: :ok
 
       defoverridable [init: 1, terminate: 2,
-                      handle_publication: 4, handle_info: 2]
+                      before_publication: 4, after_publication: 4,
+                      handle_info: 2]
     end
   end
 
@@ -233,16 +254,26 @@ defmodule Hare.Actor.Publisher do
 
   @doc false
   def handle_cast({:publication, payload, key, opts}, _next, %{mod: mod, given: given} = state) do
-    case mod.handle_publication(payload, key, opts, given) do
+    case mod.before_publication(payload, key, opts, given) do
       {:ok, new_given} ->
-        perform(payload, key, opts, state)
-        {:noreply, State.set(state, new_given)}
+        perform(payload, key, opts, new_given, state)
 
       {:ok, new_payload, new_routing_key, new_opts, new_given} ->
-        perform(new_payload, new_routing_key, new_opts, state)
-        {:noreply, State.set(state, new_given)}
+        perform(new_payload, new_routing_key, new_opts, new_given, state)
 
       {:ignore, new_given} ->
+        {:noreply, State.set(state, new_given)}
+
+      {:stop, reason, new_given} ->
+        {:stop, reason, State.set(state, new_given)}
+    end
+  end
+
+  defp perform(payload, key, opts, given, %{mod: mod, exchange: exchange} = state) do
+    Exchange.publish(exchange, payload, key, opts)
+
+    case mod.after_publication(payload, key, opts, given) do
+      {:ok, new_given} ->
         {:noreply, State.set(state, new_given)}
 
       {:stop, reason, new_given} ->
@@ -265,7 +296,4 @@ defmodule Hare.Actor.Publisher do
   def terminate(reason, %{mod: mod, given: given}) do
     mod.terminate(reason, given)
   end
-
-  defp perform(payload, routing_key, opts, %{exchange: exchange}),
-    do: Exchange.publish(exchange, payload, routing_key, opts)
 end
