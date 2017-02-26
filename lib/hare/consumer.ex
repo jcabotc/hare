@@ -92,27 +92,6 @@ defmodule Hare.Consumer do
               {:stop, reason :: term}
 
   @doc """
-  Called every time the channel has been opened and the queue, exchange, and
-  binding has been declared.
-
-  It is called with two arguments: some metadata and the process' internal state.
-
-  The metadata is a map with a two fields:
-
-    * `:queue` - the `Hare.Core.Queue` to consume from
-    * `:exchange` - the `Hare.Core.Exchange` the queue is bound to
-
-  Returning `{:noreply, state}` will cause the process to enter the main loop
-  with `state` as its internal state.
-
-  Returning `{:stop, reason, state}` will terminate the loop and call
-  `terminate(reason, state)` before the process exists with reason `reason`.
-  """
-  @callback connected(meta, state) ::
-              {:noreply, state} |
-              {:stop, reason :: term, state}
-
-  @doc """
   Called when the AMQP server has registered the process as a consumer and it
   will start to receive messages.
 
@@ -185,10 +164,6 @@ defmodule Hare.Consumer do
         do: {:ok, initial}
 
       @doc false
-      def connected(_meta, state),
-        do: {:noreply, state}
-
-      @doc false
       def handle_ready(_meta, state),
         do: {:noreply, state}
 
@@ -204,15 +179,15 @@ defmodule Hare.Consumer do
       def terminate(_reason, _state),
         do: :ok
 
-      defoverridable [init: 1, connected: 2, terminate: 2,
+      defoverridable [init: 1, terminate: 2,
                       handle_ready: 2, handle_message: 3, handle_info: 2]
     end
   end
 
-  use Connection
+  use Hare.Role.Layer
 
   alias __MODULE__.{Declaration, State}
-  alias Hare.Core.{Chan, Queue}
+  alias Hare.Core.{Queue}
 
   @context Hare.Context
 
@@ -240,9 +215,10 @@ defmodule Hare.Consumer do
   @spec start_link(module, pid, config, initial :: term, GenServer.options) :: GenServer.on_start
   def start_link(mod, conn, config, initial, opts \\ []) do
     {context, opts} = Keyword.pop(opts, :context, @context)
-    args = {mod, conn, config, context, initial}
+    layers          = [__MODULE__]
 
-    Connection.start_link(__MODULE__, args, opts)
+    args = {mod, config, context, initial}
+    Hare.Role.start_link(conn, layers, args, opts)
   end
 
   @doc "Ack's a message given its meta"
@@ -261,49 +237,39 @@ defmodule Hare.Consumer do
     do: Queue.reject(queue, meta, opts)
 
   @doc false
-  def init({mod, conn, config, context, initial}) do
-    with {:ok, declaration} <- Declaration.parse(config, context),
-         {:ok, given}       <- mod.init(initial) do
-      {:connect, :init, State.new(conn, declaration, mod, given)}
-    else
-      {:error, reason} -> {:stop, {:config_error, reason, config}}
-      other            -> other
+  def init(_next, {mod, config, context, initial}) do
+    with {:ok, declaration} <- build_declaration(config, context),
+         {:ok, given}       <- mod_init(mod, initial) do
+      {:ok, State.new(declaration, mod, given)}
+    end
+  end
+
+  defp build_declaration(config, context) do
+    with {:error, reason} <- Declaration.parse(config, context) do
+      {:stop, {:config_error, reason, config}}
+    end
+  end
+
+  defp mod_init(mod, initial) do
+    case mod.init(initial) do
+      {:ok, given}    -> {:ok, given}
+      :ignore         -> :ignore
+      {:stop, reason} -> {:stop, reason}
     end
   end
 
   @doc false
-  def connect(_info, %{conn: conn, declaration: declaration} = state) do
-    with {:ok, chan}            <- Chan.open(conn),
-         {:ok, queue, exchange} <- Declaration.run(declaration, chan),
+  def declare(chan, _next, %{declaration: declaration} = state) do
+    with {:ok, queue, exchange} <- Declaration.run(declaration, chan),
          {:ok, new_queue}       <- Queue.consume(queue) do
-      handle_connected(state, chan, new_queue, exchange)
+      {:ok, State.declared(state, new_queue, exchange)}
     else
-      {:error, reason} -> {:stop, reason}
-    end
-  end
-
-  defp handle_connected(%{mod: mod, given: given} = state, chan, queue, exchange) do
-    ref  = Chan.monitor(chan)
-    meta = complete(%{}, state)
-
-    case mod.connected(meta, given) do
-      {:noreply, new_given} ->
-        {:ok, State.connected(state, chan, ref, queue, exchange, new_given)}
-
-      {:stop, reason, new_given} ->
-        {:stop, reason, State.connected(state, chan, ref, queue, exchange, new_given)}
+      {:error, reason} -> {:stop, reason, state}
     end
   end
 
   @doc false
-  def disconnect(_info, state),
-    do: {:stop, :normal, state}
-
-  @doc false
-  def handle_info({:DOWN, ref, _, _, _reason}, %{status: :connected, ref: ref} = state) do
-    {:connect, :down, State.chan_down(state)}
-  end
-  def handle_info(message, %{status: :connected, queue: queue} = state) do
+  def handle_info(message, _next, %{queue: queue} = state) do
     case Queue.handle(queue, message) do
       {:consume_ok, meta} ->
         handle_mod_ready(meta, state)
@@ -323,15 +289,7 @@ defmodule Hare.Consumer do
   end
 
   @doc false
-  def terminate(reason, %{status: :connected, chan: chan} = state) do
-    mod_terminate(reason, state)
-    Chan.close(chan)
-  end
-  def terminate(reason, state) do
-    mod_terminate(reason, state)
-  end
-
-  defp mod_terminate(reason, %{mod: mod, given: given}),
+  def terminate(reason, _next, %{mod: mod, given: given}),
     do: mod.terminate(reason, given)
 
   defp handle_mod_ready(meta, %{mod: mod, given: given} = state) do
