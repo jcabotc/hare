@@ -22,12 +22,20 @@ defmodule Hare.Actor.RPC.ClientTest do
       {:noreply, pid}
     end
 
-    def handle_request(payload, routing_key, opts, pid) do
+    def before_request(payload, routing_key, opts, _from, pid) do
       case Keyword.fetch(opts, :hook) do
         {:ok, "modify_request"}      -> {:ok, "ASDF - #{payload}", routing_key, [bar: "baz"], pid}
         {:ok, "reply: " <> response} -> {:reply, response, pid}
         {:ok, "stop: " <> response}  -> {:stop, "a_reason", response, pid}
         _otherwise                   -> {:ok, pid}
+      end
+    end
+
+    def on_response(response, _from, pid) do
+      case response do
+        "noreply"  -> {:noreply, pid}
+        "modify"   -> {:reply, "modified_response", pid}
+        _otherwise -> {:reply, response, pid}
       end
     end
 
@@ -82,10 +90,14 @@ defmodule Hare.Actor.RPC.ClientTest do
       TestClient.request(rpc_client, payload, routing_key, [])
     end
     request_2 = Task.async fn ->
+      TestClient.request(rpc_client, payload, routing_key, [])
+    end
+    request_3 = Task.async fn ->
       TestClient.request(rpc_client, payload, routing_key, hook: "modify_request")
     end
     assert nil == Task.yield(request_1, 20)
     assert nil == Task.yield(request_2, 1)
+    assert nil == Task.yield(request_3, 1)
 
     assert {:ok, "hi!"} = TestClient.request(rpc_client, payload, routing_key, hook: "reply: hi!")
 
@@ -108,28 +120,40 @@ defmodule Hare.Actor.RPC.ClientTest do
               [given_chan_1, "foo", ^payload, ^routing_key, opts_1],
               :ok},
             {:publish,
-              [given_chan_1, "foo", "ASDF - " <> ^payload, ^routing_key, opts_2],
+              [given_chan_1, "foo", ^payload, ^routing_key, opts_2],
+              :ok},
+            {:publish,
+              [given_chan_1, "foo", "ASDF - " <> ^payload, ^routing_key, opts_3],
               :ok}
-           ] = Adapter.Backdoor.last_events(history, 7)
+           ] = Adapter.Backdoor.last_events(history, 8)
 
     assert resp_queue_name == Keyword.fetch!(opts_1, :reply_to)
     correlation_id_1 = Keyword.fetch!(opts_1, :correlation_id)
 
     assert resp_queue_name == Keyword.fetch!(opts_2, :reply_to)
-    assert "baz"           == Keyword.fetch!(opts_2, :bar)
     correlation_id_2 = Keyword.fetch!(opts_2, :correlation_id)
 
-    response_2 = "the response 2"
+    assert resp_queue_name == Keyword.fetch!(opts_3, :reply_to)
+    assert "baz"           == Keyword.fetch!(opts_3, :bar)
+    correlation_id_3 = Keyword.fetch!(opts_3, :correlation_id)
+
+    response_2 = "a_response"
     meta_2     = %{correlation_id: correlation_id_2}
     send(rpc_client, {:deliver, response_2, meta_2})
 
     assert {:ok, response_2} == Task.await(request_2)
 
-    response_1 = "the response 1"
+    response_3 = "modify"
+    meta_3     = %{correlation_id: correlation_id_3}
+    send(rpc_client, {:deliver, response_3, meta_3})
+
+    assert {:ok, "modified_response"} == Task.await(request_3)
+
+    response_1 = "noreply"
     meta_1     = %{correlation_id: correlation_id_1}
     send(rpc_client, {:deliver, response_1, meta_1})
 
-    assert {:ok, response_1} == Task.await(request_1)
+    assert nil == Task.yield(request_1, 10)
   end
 
   test "timeout" do

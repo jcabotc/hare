@@ -23,7 +23,7 @@ defmodule Hare.Actor.RPC.Client do
       {:ok, MapSet.new}
     end
 
-    def handle_request(payload, _routing_key, _opts, state) do
+    def before_request(payload, _routing_key, _opts, state) do
       case MapSet.member?(cache, payload) do
         {:ok, response} -> {:reply, "already_requested", state}
         :error          -> {:ok, MapSet.put(state, payload)}
@@ -56,8 +56,10 @@ defmodule Hare.Actor.RPC.Client do
   """
 
   @type payload     :: Hare.Adapter.payload
+  @type response    :: payload
   @type routing_key :: Hare.Adapter.routing_key
   @type opts        :: Hare.Adapter.opts
+  @type from        :: GenServer.from
   @type meta        :: map
   @type state       :: term
 
@@ -120,15 +122,74 @@ defmodule Hare.Actor.RPC.Client do
   without performing the request with the given response, and enter the main
   loop again with the given state.
 
+  Returning `{:stop, reason, response, state}` will not send the message,
+  respond to the caller with `response`, and terminate the main loop
+  and call `terminate(reason, state)` before the process exists with
+  reason `reason`.
+
   Returning `{:stop, reason, state}` will not send the message, terminate the
   main loop and call `terminate(reason, state)` before the process exists with
   reason `reason`.
   """
-  @callback handle_request(payload, routing_key, opts :: term, state) ::
+  @callback before_request(payload, routing_key, opts :: term, from, state) ::
               {:ok, state} |
               {:ok, payload, routing_key, opts :: term, state} |
-              {:reply, response :: term, state} |
-              {:stop, reason :: term, response :: binary, state}
+              {:reply, response, state} |
+              {:stop, reason :: term, response, state} |
+              {:stop, reason :: term, state}
+
+  @doc """
+  Called when a response has been received, before it is delivered to the caller.
+
+  It receives as argument the message payload, the routing key, the options
+  for that publication, the response, and the internal state.
+
+  Returning `{:reply, reply, state}` will cause the given reply to be
+  delivered to the caller instead of the original response, and enter
+  the main loop with the given state.
+
+  Returning `{:noreply, state}` will enter the main loop with the given state
+  without responding to the caller (that will eventually timeout or keep blocked
+  forever if the timeout was set to `:infinity`).
+
+  Returning `{:stop, reason, reply, state}` will deliver the given reply to
+  the caller instead of the original response and call `terminate(reason, state)`
+  before the process exists with reason `reason`.
+
+  Returning `{:stop, reason, state}` not reply to the caller and call
+  `terminate(reason, state)` before the process exists with reason `reason`.
+  """
+  @callback on_response(response, from, state) ::
+              {:reply, response, state} |
+              {:noreply, state} |
+              {:stop, reason :: term, response, state} |
+              {:stop, reason :: term, state}
+
+  @doc """
+  Called when a request has timed out.
+
+  It receives as argument the message payload, the routing key, the options
+  for that publication, and the internal state.
+
+  Returning `{:reply, reply, state}` will cause the given reply to be
+  delivered to the caller, and enter the main loop with the given state.
+
+  Returning `{:noreply, state}` will enter the main loop with the given state
+  without responding to the caller (that will eventually timeout or keep blocked
+  forever if the timeout was set to `:infinity`).
+
+  Returning `{:stop, reason, reply, state}` will deliver the given reply to
+  the caller, and call `terminate(reason, state)` before the process exists
+  with reason `reason`.
+
+  Returning `{:stop, reason, state}` will not reply to the caller and call
+  `terminate(reason, state)` before the process exists with reason `reason`.
+  """
+  @callback on_timeout(from, state) ::
+              {:reply, response, state} |
+              {:noreply, state} |
+              {:stop, reason :: term, response, state} |
+              {:stop, reason :: term, state}
 
   @doc """
   Called when the process receives a message.
@@ -165,8 +226,16 @@ defmodule Hare.Actor.RPC.Client do
         do: {:noreply, state}
 
       @doc false
-      def handle_request(_payload, _routing_key, _meta, state),
+      def before_request(_payload, _routing_key, _meta, _from, state),
         do: {:ok, state}
+
+      @doc false
+      def on_timeout(_from, state),
+        do: {:reply, {:error, :timeout}, state}
+
+      @doc false
+      def on_response(response, _from, state),
+        do: {:reply, response, state}
 
       @doc false
       def handle_info(_message, state),
@@ -177,7 +246,8 @@ defmodule Hare.Actor.RPC.Client do
         do: :ok
 
       defoverridable [init: 1, terminate: 2,
-                      handle_ready: 2, handle_request: 4, handle_info: 2]
+                      handle_ready: 2, handle_info: 2,
+                      before_request: 5, on_timeout: 2, on_response: 3]
     end
   end
 
@@ -269,7 +339,7 @@ defmodule Hare.Actor.RPC.Client do
 
   @doc false
   def handle_call({:request, payload, routing_key, opts}, from, _next, %{mod: mod, given: given} = state) do
-    case mod.handle_request(payload, routing_key, opts, given) do
+    case mod.before_request(payload, routing_key, opts, from, given) do
       {:ok, new_given} ->
         correlation_id = perform(payload, routing_key, opts, state)
         set_request_timeout(correlation_id, state)
@@ -284,6 +354,9 @@ defmodule Hare.Actor.RPC.Client do
 
       {:stop, reason, response, new_given} ->
         {:stop, reason, {:ok, response}, State.set(state, new_given)}
+
+      {:stop, reason, new_given} ->
+        {:stop, reason, State.set(state, new_given)}
     end
   end
 
@@ -291,8 +364,7 @@ defmodule Hare.Actor.RPC.Client do
   def handle_info({:request_timeout, correlation_id}, _next, state) do
     case State.pop_waiting(state, correlation_id) do
       {:ok, from, new_state} ->
-        GenServer.reply(from, {:error, :timeout})
-        {:noreply, new_state}
+        handle_mod_on_timeout(from, new_state)
 
       :unknown ->
         {:noreply, state}
@@ -321,6 +393,24 @@ defmodule Hare.Actor.RPC.Client do
   def terminate(reason, _next, %{mod: mod, given: given}),
     do: mod.terminate(reason, given)
 
+  defp handle_mod_on_timeout(from, %{mod: mod, given: given} = state) do
+    case mod.on_timeout(from, given) do
+      {:reply, response, new_given} ->
+        GenServer.reply(from, response)
+        {:noreply, State.set(state, new_given)}
+
+      {:noreply, new_given} ->
+        {:noreply, State.set(state, new_given)}
+
+      {:stop, reason, response, new_given} ->
+        GenServer.reply(from, response)
+        {:stop, reason, State.set(state, new_given)}
+
+      {:stop, reason, new_given} ->
+        {:stop, reason, State.set(state, new_given)}
+    end
+  end
+
   defp handle_mod_ready(meta, %{mod: mod, given: given} = state) do
     case mod.handle_ready(complete(meta, state), given) do
       {:noreply, new_given} ->
@@ -334,11 +424,28 @@ defmodule Hare.Actor.RPC.Client do
   defp handle_response(payload, %{correlation_id: correlation_id}, state) do
     case State.pop_waiting(state, correlation_id) do
       {:ok, from, new_state} ->
-        GenServer.reply(from, {:ok, payload})
-        {:noreply, new_state}
+        handle_mod_on_response(payload, from, new_state)
 
       :unknown ->
         {:noreply, state}
+    end
+  end
+
+  defp handle_mod_on_response(payload, from, %{mod: mod, given: given} = state) do
+    case mod.on_response(payload, from, given) do
+      {:reply, response, new_given} ->
+        GenServer.reply(from, {:ok, response})
+        {:noreply, State.set(state, new_given)}
+
+      {:noreply, new_given} ->
+        {:noreply, State.set(state, new_given)}
+
+      {:stop, reason, response, new_given} ->
+        GenServer.reply(from, {:ok, response})
+        {:stop, reason, State.set(state, new_given)}
+
+      {:stop, reason, new_given} ->
+        {:stop, reason, State.set(state, new_given)}
     end
   end
 
