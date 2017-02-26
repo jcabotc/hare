@@ -1,7 +1,7 @@
-defmodule Hare.RPC.Server.DeclarationTest do
+defmodule Hare.Actor.RPC.Server.DeclarationTest do
   use ExUnit.Case, async: true
 
-  alias Hare.RPC.Server.Declaration
+  alias Hare.Actor.RPC.Server.Declaration
 
   defmodule ValidContext do
     def validate(_steps),

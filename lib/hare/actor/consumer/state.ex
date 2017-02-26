@@ -1,4 +1,4 @@
-defmodule Hare.Consumer.State do
+defmodule Hare.Actor.Consumer.State do
   @moduledoc false
 
   alias __MODULE__

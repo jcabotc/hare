@@ -1,4 +1,4 @@
-defmodule Hare.RPC.Client.Runtime do
+defmodule Hare.Actor.RPC.Client.Runtime do
   @moduledoc false
 
   alias __MODULE__

@@ -1,4 +1,4 @@
-defmodule Hare.RPC.Client.Declaration do
+defmodule Hare.Actor.RPC.Client.Declaration do
   @moduledoc false
 
   alias __MODULE__

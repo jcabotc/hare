@@ -1,4 +1,4 @@
-defmodule Hare.RPC.Server.State do
+defmodule Hare.Actor.RPC.Server.State do
   @moduledoc false
 
   alias __MODULE__
