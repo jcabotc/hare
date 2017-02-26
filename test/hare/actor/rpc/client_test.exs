@@ -1,8 +1,8 @@
-defmodule Hare.RPC.ClientTest do
+defmodule Hare.Actor.RPC.ClientTest do
   use ExUnit.Case, async: true
 
   alias Hare.Core.Conn
-  alias Hare.RPC.Client
+  alias Hare.Actor.RPC.Client
 
   defmodule TestClient do
     use Client

@@ -1,8 +1,8 @@
-defmodule Hare.ConsumerTest do
+defmodule Hare.Actor.ConsumerTest do
   use ExUnit.Case, async: true
 
   alias Hare.Core.Conn
-  alias Hare.Consumer
+  alias Hare.Actor.Consumer
 
   defmodule TestConsumer do
     use Consumer

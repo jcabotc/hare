@@ -1,8 +1,8 @@
-defmodule Hare.RPC.ServerTest do
+defmodule Hare.Actor.RPC.ServerTest do
   use ExUnit.Case, async: true
 
   alias Hare.Core.Conn
-  alias Hare.RPC.Server
+  alias Hare.Actor.RPC.Server
 
   defmodule EchoTestServer do
     use Server

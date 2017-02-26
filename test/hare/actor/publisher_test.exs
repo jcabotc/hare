@@ -1,8 +1,8 @@
-defmodule Hare.PublisherTest do
+defmodule Hare.Actor.PublisherTest do
   use ExUnit.Case, async: true
 
   alias Hare.Core.Conn
-  alias Hare.Publisher
+  alias Hare.Actor.Publisher
 
   defmodule TestPublisher do
     use Publisher
