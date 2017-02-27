@@ -79,6 +79,8 @@ defmodule Hare.RPC.ServerTest do
     expected_meta = Map.merge(meta, %{queue: queue, exchange: exchange})
     assert_receive {:message, payload, ^expected_meta}
 
+    Process.sleep(20)
+
     reply   = "received: #{payload}"
     headers = [correlation_id: 10]
     assert [{:open_channel,

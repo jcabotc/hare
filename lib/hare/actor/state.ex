@@ -9,25 +9,20 @@ defmodule Hare.Actor.State do
             layers: [],
             given:  nil
 
-  def new(conn, layers, given) when is_list(layers) do
-    %State{conn: conn, layers: layers, given: given}
-  end
+  def new(conn, layers, given) when is_list(layers),
+    do: %State{conn: conn, layers: layers, given: given}
 
-  def set(%State{} = state, new_given) do
-    %{state | given: new_given}
-  end
+  def set(%State{} = state, new_given),
+    do: %{state | given: new_given}
+
   def set(%State{} = state, %Chan{} = chan, new_given) do
     ref = Chan.monitor(chan)
 
-    %{state | chan:   chan,
-              ref:    ref,
-              status: :up,
-              given:  new_given}
+    %{state | chan: chan, ref: ref, status: :up, given: new_given}
   end
 
-  def down(%State{} = state) do
-    %{state | chan: nil, ref: nil, status: :down}
-  end
+  def down(%State{} = state),
+    do: %{state | chan: nil, ref: nil, status: :down}
 
   def close(%State{status: :up, chan: chan}),
     do: Chan.close(chan)
