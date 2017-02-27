@@ -163,6 +163,14 @@ defmodule Hare.Actor.RPC.Server do
         do: {:noreply, state}
 
       @doc false
+      def handle_call(message, _from, state),
+        do: {:stop, {:bad_call, message}, state}
+
+      @doc false
+      def handle_cast(message, state),
+        do: {:stop, {:bad_cast, message}, state}
+
+      @doc false
       def handle_info(_message, state),
         do: {:noreply, state}
 
@@ -171,7 +179,8 @@ defmodule Hare.Actor.RPC.Server do
         do: :ok
 
       defoverridable [init: 1, terminate: 2,
-                      handle_ready: 2, handle_request: 3, handle_info: 2]
+                      handle_ready: 2, handle_request: 3,
+                      handle_call: 3, handle_cast: 2, handle_info: 2]
     end
   end
 
@@ -256,6 +265,33 @@ defmodule Hare.Actor.RPC.Server do
   end
 
   @doc false
+  def handle_call(message, from, _next, %{mod: mod, given: given} = state) do
+    case mod.handle_call(message, from, given) do
+      {:reply, reply, new_given} ->
+        {:reply, reply, State.set(state, new_given)}
+
+      {:reply, reply, new_given, timeout} ->
+        {:reply, reply, State.set(state, new_given), timeout}
+
+      {:noreply, new_given} ->
+        {:noreply, State.set(state, new_given)}
+
+      {:noreply, new_given, timeout} ->
+        {:noreply, State.set(state, new_given), timeout}
+
+      {:stop, reason, reply, new_given} ->
+        {:stop, reason, reply, State.set(state, new_given)}
+
+      {:stop, reason, new_given} ->
+        {:stop, reason, State.set(state, new_given)}
+    end
+  end
+
+  @doc false
+  def handle_cast(message, _next, state),
+    do: handle_async(message, :handle_cast, state)
+
+  @doc false
   def handle_info(message, _next, %{queue: queue} = state) do
     case Queue.handle(queue, message) do
       {:consume_ok, meta} ->
@@ -268,11 +304,11 @@ defmodule Hare.Actor.RPC.Server do
         {:stop, :cancelled, state}
 
       :unknown ->
-        handle_mod_info(message, state)
+        handle_async(message, :handle_info, state)
     end
   end
   def handle_info(message, _next, state) do
-    handle_mod_info(message, state)
+    handle_async(message, :handle_info, state)
   end
 
   @doc false
@@ -305,16 +341,19 @@ defmodule Hare.Actor.RPC.Server do
     end
   end
 
-  defp handle_mod_info(message, %{mod: mod, given: given} = state) do
-    case mod.handle_info(message, given) do
+  defp complete(meta, %{queue: queue, exchange: exchange}),
+    do: meta |> Map.put(:exchange, exchange) |> Map.put(:queue, queue)
+
+  defp handle_async(message, fun, %{mod: mod, given: given} = state) do
+    case apply(mod, fun, [message, given]) do
       {:noreply, new_given} ->
         {:noreply, State.set(state, new_given)}
+
+      {:noreply, new_given, timeout} ->
+        {:noreply, State.set(state, new_given), timeout}
 
       {:stop, reason, new_given} ->
         {:stop, reason, State.set(state, new_given)}
     end
   end
-
-  defp complete(meta, %{queue: queue, exchange: exchange}),
-    do: meta |> Map.put(:exchange, exchange) |> Map.put(:queue, queue)
 end

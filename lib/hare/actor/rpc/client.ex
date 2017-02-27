@@ -253,8 +253,8 @@ defmodule Hare.Actor.RPC.Client do
       def terminate(_reason, _state),
         do: :ok
 
-      defoverridable [init: 1, terminate: 2,
-                      handle_ready: 2, handle_info: 2,
+      defoverridable [init: 1, terminate: 2, handle_ready: 2,
+                      handle_call: 3, handle_cast: 2, handle_info: 2,
                       before_request: 5, on_timeout: 2, on_response: 3]
     end
   end
