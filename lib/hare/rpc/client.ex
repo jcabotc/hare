@@ -315,7 +315,7 @@ defmodule Hare.RPC.Client do
     with {:ok, declaration}  <- build_declaration(config, context),
          {:ok, runtime_opts} <- parse_runtime(config),
          {:ok, given}        <- mod_init(mod, initial) do
-      {:ok, State.new(declaration, runtime_opts, mod, given)}
+      {:ok, State.new(config, declaration, runtime_opts, mod, given)}
     end
   end
 

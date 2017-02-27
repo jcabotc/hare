@@ -3,12 +3,14 @@ defmodule Hare.RPC.Client.State do
 
   alias __MODULE__
 
-  defstruct [:declaration, :runtime_opts, :resp_queue, :req_exchange,
+  defstruct [:config,
+             :declaration, :runtime_opts, :resp_queue, :req_exchange,
              :mod, :given,
              :waiting]
 
-  def new(declaration, runtime_opts, mod, given) do
-    %State{declaration:  declaration,
+  def new(config, declaration, runtime_opts, mod, given) do
+    %State{config:       config,
+           declaration:  declaration,
            runtime_opts: runtime_opts,
            mod:          mod,
            given:        given,

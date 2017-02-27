@@ -3,11 +3,13 @@ defmodule Hare.Publisher.State do
 
   alias __MODULE__
 
-  defstruct [:declaration, :exchange,
+  defstruct [:config,
+             :declaration, :exchange,
              :mod, :given]
 
-  def new(declaration, mod, given) do
-    %State{declaration: declaration,
+  def new(config, declaration, mod, given) do
+    %State{config:      config,
+           declaration: declaration,
            mod:         mod,
            given:       given}
   end

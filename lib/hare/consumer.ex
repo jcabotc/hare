@@ -256,7 +256,7 @@ defmodule Hare.Consumer do
   def init(_next, {mod, config, context, initial}) do
     with {:ok, declaration} <- build_declaration(config, context),
          {:ok, given}       <- mod_init(mod, initial) do
-      {:ok, State.new(declaration, mod, given)}
+      {:ok, State.new(config, declaration, mod, given)}
     end
   end
 
