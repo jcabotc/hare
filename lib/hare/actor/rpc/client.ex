@@ -238,6 +238,14 @@ defmodule Hare.Actor.RPC.Client do
         do: {:reply, {:ok, response}, state}
 
       @doc false
+      def handle_call(message, _from, state),
+        do: {:stop, {:bad_call, message}, state}
+
+      @doc false
+      def handle_cast(message, state),
+        do: {:stop, {:bad_cast, message}, state}
+
+      @doc false
       def handle_info(_message, state),
         do: {:noreply, state}
 
@@ -295,7 +303,7 @@ defmodule Hare.Actor.RPC.Client do
   @spec request(pid, payload, routing_key, opts, timeout) ::
           response :: term
   def request(client, payload, routing_key \\ "", opts \\ [], timeout \\ 5000),
-    do: Hare.Role.call(client, {:request, payload, routing_key, opts}, timeout)
+    do: Hare.Role.call(client, {:"$hare_request", payload, routing_key, opts}, timeout)
 
   @doc false
   def init(_next, {mod, config, context, initial}) do
@@ -337,7 +345,7 @@ defmodule Hare.Actor.RPC.Client do
   end
 
   @doc false
-  def handle_call({:request, payload, routing_key, opts}, from, _next, %{mod: mod, given: given} = state) do
+  def handle_call({:"$hare_request", payload, routing_key, opts}, from, _next, %{mod: mod, given: given} = state) do
     case mod.before_request(payload, routing_key, opts, from, given) do
       {:ok, new_given} ->
         correlation_id = perform(payload, routing_key, opts, state)
@@ -358,6 +366,31 @@ defmodule Hare.Actor.RPC.Client do
         {:stop, reason, State.set(state, new_given)}
     end
   end
+  def handle_call(message, from, _next, %{mod: mod, given: given} = state) do
+    case mod.handle_call(message, from, given) do
+      {:reply, reply, new_given} ->
+        {:reply, reply, State.set(state, new_given)}
+
+      {:reply, reply, new_given, timeout} ->
+        {:reply, reply, State.set(state, new_given), timeout}
+
+      {:noreply, new_given} ->
+        {:noreply, State.set(state, new_given)}
+
+      {:noreply, new_given, timeout} ->
+        {:noreply, State.set(state, new_given), timeout}
+
+      {:stop, reason, reply, new_given} ->
+        {:stop, reason, reply, State.set(state, new_given)}
+
+      {:stop, reason, new_given} ->
+        {:stop, reason, State.set(state, new_given)}
+    end
+  end
+
+  @doc false
+  def handle_cast(message, _next, state),
+    do: handle_async(message, :handle_cast, state)
 
   @doc false
   def handle_info({:request_timeout, correlation_id}, _next, state) do
@@ -381,12 +414,11 @@ defmodule Hare.Actor.RPC.Client do
         {:stop, :cancelled, state}
 
       :unknown ->
-        handle_mod_info(message, state)
+        handle_async(message, :handle_info, state)
     end
   end
-  def handle_info(message, _next, state) do
-    handle_mod_info(message, state)
-  end
+  def handle_info(message, _next, state),
+    do: handle_async(message, :handle_info, state)
 
   @doc false
   def terminate(reason, _next, %{mod: mod, given: given}),
@@ -448,16 +480,6 @@ defmodule Hare.Actor.RPC.Client do
     end
   end
 
-  defp handle_mod_info(message, %{mod: mod, given: given} = state) do
-    case mod.handle_info(message, given) do
-      {:noreply, new_given} ->
-        {:noreply, State.set(state, new_given)}
-
-      {:stop, reason, new_given} ->
-        {:stop, reason, State.set(state, new_given)}
-    end
-  end
-
   defp perform(payload, routing_key, opts, %{req_exchange: req_exchange, resp_queue: resp_queue}) do
     correlation_id = generate_correlation_id()
     new_opts = Keyword.merge(opts, reply_to:       resp_queue.name,
@@ -482,5 +504,18 @@ defmodule Hare.Actor.RPC.Client do
   defp set_request_timeout(correlation_id, %{runtime_opts: %{timeout: timeout}}) do
     if timeout != :infinity,
       do: Process.send_after(self(), {:request_timeout, correlation_id}, timeout)
+  end
+
+  defp handle_async(message, fun, %{mod: mod, given: given} = state) do
+    case apply(mod, fun, [message, given]) do
+      {:noreply, new_given} ->
+        {:noreply, State.set(state, new_given)}
+
+      {:noreply, new_given, timeout} ->
+        {:noreply, State.set(state, new_given), timeout}
+
+      {:stop, reason, new_given} ->
+        {:stop, reason, State.set(state, new_given)}
+    end
   end
 end
