@@ -164,6 +164,14 @@ defmodule Hare.Actor.Publisher do
         do: {:ok, state}
 
       @doc false
+      def handle_call(message, _from, state),
+        do: {:stop, {:bad_call, message}, state}
+
+      @doc false
+      def handle_cast(message, state),
+        do: {:stop, {:bad_cast, message}, state}
+
+      @doc false
       def handle_info(_message, state),
         do: {:noreply, state}
 
@@ -173,7 +181,7 @@ defmodule Hare.Actor.Publisher do
 
       defoverridable [init: 1, terminate: 2,
                       before_publication: 4, after_publication: 4,
-                      handle_info: 2]
+                      handle_call: 3, handle_cast: 2, handle_info: 2]
     end
   end
 
@@ -212,12 +220,20 @@ defmodule Hare.Actor.Publisher do
     Hare.Role.start_link(conn, layers, args, opts)
   end
 
+  def call(client, message),
+    do: Hare.Role.call(client, message)
+  def call(client, message, timeout),
+    do: Hare.Role.call(client, message, timeout)
+
+  def cast(client, message),
+    do: Hare.Role.cast(client, message)
+
   @doc """
   Publishes a message to an exchange through the `Hare.Actor.Publisher` process.
   """
   @spec publish(pid, payload, routing_key, opts) :: :ok
   def publish(client, payload, routing_key \\ "", opts \\ []),
-    do: Hare.Role.cast(client, {:publication, payload, routing_key, opts})
+    do: Hare.Role.cast(client, {:"$hare_publication", payload, routing_key, opts})
 
   @doc false
   def init(_next, {mod, config, context, initial}) do
@@ -253,7 +269,30 @@ defmodule Hare.Actor.Publisher do
   end
 
   @doc false
-  def handle_cast({:publication, payload, key, opts}, _next, %{mod: mod, given: given} = state) do
+  def handle_call(message, from, _next, %{mod: mod, given: given} = state) do
+    case mod.handle_call(message, from, given) do
+      {:reply, reply, new_given} ->
+        {:reply, reply, State.set(state, new_given)}
+
+      {:reply, reply, new_given, timeout} ->
+        {:reply, reply, State.set(state, new_given), timeout}
+
+      {:noreply, new_given} ->
+        {:noreply, State.set(state, new_given)}
+
+      {:noreply, new_given, timeout} ->
+        {:noreply, State.set(state, new_given), timeout}
+
+      {:stop, reason, reply, new_given} ->
+        {:stop, reason, reply, State.set(state, new_given)}
+
+      {:stop, reason, new_given} ->
+        {:stop, reason, State.set(state, new_given)}
+    end
+  end
+
+  @doc false
+  def handle_cast({:"$hare_publication", payload, key, opts}, _next, %{mod: mod, given: given} = state) do
     case mod.before_publication(payload, key, opts, given) do
       {:ok, new_given} ->
         perform(payload, key, opts, new_given, state)
@@ -268,6 +307,16 @@ defmodule Hare.Actor.Publisher do
         {:stop, reason, State.set(state, new_given)}
     end
   end
+  def handle_cast(message, _next, state),
+    do: handle_async(message, :handle_cast, state)
+
+  @doc false
+  def handle_info(message, _next, state),
+    do: handle_async(message, :handle_info, state)
+
+  @doc false
+  def terminate(reason, %{mod: mod, given: given}),
+    do: mod.terminate(reason, given)
 
   defp perform(payload, key, opts, given, %{mod: mod, exchange: exchange} = state) do
     Exchange.publish(exchange, payload, key, opts)
@@ -281,19 +330,16 @@ defmodule Hare.Actor.Publisher do
     end
   end
 
-  @doc false
-  def handle_info(message, _next, %{mod: mod, given: given} = state) do
-    case mod.handle_info(message, given) do
+  defp handle_async(message, fun, %{mod: mod, given: given} = state) do
+    case apply(mod, fun, [message, given]) do
       {:noreply, new_given} ->
         {:noreply, State.set(state, new_given)}
+
+      {:noreply, new_given, timeout} ->
+        {:noreply, State.set(state, new_given), timeout}
 
       {:stop, reason, new_given} ->
         {:stop, reason, State.set(state, new_given)}
     end
-  end
-
-  @doc false
-  def terminate(reason, %{mod: mod, given: given}) do
-    mod.terminate(reason, given)
   end
 end

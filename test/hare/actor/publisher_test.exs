@@ -73,15 +73,15 @@ defmodule Hare.Actor.PublisherTest do
 
     Process.sleep(20)
 
-    assert [#{:open_channel,
-            #  [_given_conn],
-            #  {:ok, given_chan_1}},
-            #{:declare_exchange,
-            #  [given_chan_1, "foo", :fanout, [durable: true]],
-            #  :ok},
-            #{:monitor_channel,
-            #  [given_chan_1],
-            #  _ref},
+    assert [{:open_channel,
+              [_given_conn],
+              {:ok, given_chan_1}},
+            {:declare_exchange,
+              [given_chan_1, "foo", :fanout, [durable: true]],
+              :ok},
+            {:monitor_channel,
+              [given_chan_1],
+              _ref},
             {:publish,
               [given_chan_1, "foo", ^payload, ^routing_key, []],
               :ok},
@@ -91,6 +91,6 @@ defmodule Hare.Actor.PublisherTest do
             {:close_channel,
               [given_chan_1],
               :ok}
-           ] = Adapter.Backdoor.last_events(history, 3)
+           ] = Adapter.Backdoor.last_events(history, 6)
   end
 end
