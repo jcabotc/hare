@@ -1,5 +1,5 @@
 defmodule Hare.Support.TestExtension do
-  use Hare.Role.Layer
+  use Hare.Actor.Layer
 
   def handle_info({:test_extension, pid}, _next, state) do
     send(pid, :test_extension_success)
