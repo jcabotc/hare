@@ -1,8 +1,6 @@
 defmodule Hare.ConsumerTest do
   use ExUnit.Case, async: true
 
-  alias Hare.Support.TestExtension
-
   alias Hare.Core.Conn
   alias Hare.Consumer
 
@@ -51,8 +49,7 @@ defmodule Hare.ConsumerTest do
   test "echo server" do
     {history, conn} = build_conn()
 
-    config = [extensions: [TestExtension],
-              exchange: [name: "foo",
+    config = [exchange: [name: "foo",
                          type: :direct,
                          opts: [durable: true]],
               queue: [name: "bar",
@@ -69,9 +66,6 @@ defmodule Hare.ConsumerTest do
 
     send(consumer, :some_message)
     assert_receive {:info, :some_message}
-
-    send(consumer, {:test_extension, self()})
-    assert_receive :test_extension_success
 
     payload = "some data"
     meta    = %{}
@@ -90,6 +84,9 @@ defmodule Hare.ConsumerTest do
     assert [{:open_channel,
               [_given_conn],
               {:ok, given_chan_1}},
+            {:monitor_channel,
+              [given_chan_1],
+              _ref},
             {:declare_exchange,
               [given_chan_1, "foo", :direct, [durable: true]],
               :ok},
@@ -105,9 +102,6 @@ defmodule Hare.ConsumerTest do
             {:consume,
               [given_chan_1, "bar", ^consumer, []],
               {:ok, _consumer_tag}},
-            {:monitor_channel,
-              [given_chan_1],
-              _ref},
             {:ack,
               [given_chan_1, _meta_ack, []],
               :ok},
@@ -133,6 +127,9 @@ defmodule Hare.ConsumerTest do
     assert [{:open_channel,
               [_given_conn],
               {:ok, given_chan_2}},
+            {:monitor_channel,
+              [given_chan_2],
+              _ref},
             {:declare_exchange,
               [given_chan_2, "foo", :direct, [durable: true]],
               :ok},
@@ -147,10 +144,7 @@ defmodule Hare.ConsumerTest do
               :ok},
             {:consume,
               [given_chan_2, "bar", ^consumer, []],
-              {:ok, _consumer_tag}},
-            {:monitor_channel,
-              [given_chan_2],
-              _ref}
+              {:ok, _consumer_tag}}
            ] = Adapter.Backdoor.last_events(history, 7)
 
     assert given_chan_1 != given_chan_2

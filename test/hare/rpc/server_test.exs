@@ -1,8 +1,6 @@
 defmodule Hare.RPC.ServerTest do
   use ExUnit.Case, async: true
 
-  alias Hare.Support.TestExtension
-
   alias Hare.Core.Conn
   alias Hare.RPC.Server
 
@@ -52,8 +50,7 @@ defmodule Hare.RPC.ServerTest do
   test "echo server" do
     {history, conn} = build_conn()
 
-    config = [extensions: [TestExtension],
-              exchange: [name: "foo",
+    config = [exchange: [name: "foo",
                          type: :fanout,
                          opts: [durable: true]],
               queue: [name: "bar",
@@ -69,9 +66,6 @@ defmodule Hare.RPC.ServerTest do
     send(rpc_server, :some_message)
     assert_receive {:info, :some_message}
 
-    send(rpc_server, {:test_extension, self()})
-    assert_receive :test_extension_success
-
     payload = "implicit - a binary message"
     meta    = %{reply_to: "response_queue", correlation_id: 10}
 
@@ -86,6 +80,9 @@ defmodule Hare.RPC.ServerTest do
     assert [{:open_channel,
               [_given_conn],
               {:ok, given_chan_1}},
+            {:monitor_channel,
+              [given_chan_1],
+              _ref},
             {:declare_exchange,
               [given_chan_1, "foo", :fanout, [durable: true]],
               :ok},
@@ -98,9 +95,6 @@ defmodule Hare.RPC.ServerTest do
             {:consume,
               [given_chan_1, "bar", ^rpc_server, [no_ack: true]],
               {:ok, _consumer_tag}},
-            {:monitor_channel,
-              [given_chan_1],
-              _ref},
             {:publish,
               [given_chan_1, "", ^reply, "response_queue", ^headers],
               :ok}
@@ -122,6 +116,9 @@ defmodule Hare.RPC.ServerTest do
     assert [{:open_channel,
               [_given_conn],
               {:ok, given_chan_2}},
+            {:monitor_channel,
+              [given_chan_2],
+              _ref},
             {:declare_exchange,
               [given_chan_2, "foo", :fanout, [durable: true]],
               :ok},
@@ -134,9 +131,6 @@ defmodule Hare.RPC.ServerTest do
             {:consume,
               [given_chan_2, "bar", ^rpc_server, [no_ack: true]],
               {:ok, _consumer_tag}},
-            {:monitor_channel,
-              [given_chan_2],
-              _ref},
             {:publish,
               [given_chan_2, "", ^reply, "response_queue", ^headers],
               :ok}

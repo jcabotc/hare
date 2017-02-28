@@ -21,8 +21,9 @@ defmodule Hare.Core.Chan do
   A timeout in ms may be specified for this operation (5 seconds by default).
   """
   @spec open(conn :: pid, timeout) :: t
-  def open(conn, timeout \\ 5000),
-    do: Hare.Core.Conn.open_channel(conn, timeout)
+  def open(conn, timeout \\ 5000) do
+    Hare.Core.Conn.open_channel(conn, timeout)
+  end
 
   @doc """
   It buids a new `Hare.Core.Chan` struct from an adapter's channel representation

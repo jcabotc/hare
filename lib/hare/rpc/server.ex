@@ -184,7 +184,7 @@ defmodule Hare.RPC.Server do
     end
   end
 
-  use Hare.Actor.Layer
+  use Hare.Actor
 
   alias __MODULE__.{Declaration, State}
   alias Hare.Core.{Queue, Exchange}
@@ -213,12 +213,9 @@ defmodule Hare.RPC.Server do
   @spec start_link(module, pid, config, initial :: term, GenServer.options) :: GenServer.on_start
   def start_link(mod, conn, config, initial, opts \\ []) do
     {context, opts} = Keyword.pop(opts, :context, @context)
-    extensions      = Keyword.get(config, :extensions, [])
+    args = {config, context, mod, initial}
 
-    layers = extensions ++ [__MODULE__]
-    args   = {mod, config, context, initial}
-
-    Hare.Actor.start_link(layers, conn, args, opts)
+    Hare.Actor.start_link(__MODULE__, conn, args, opts)
   end
 
   @doc "Responds a request given its meta or replies to a call/2 caller"
@@ -240,7 +237,7 @@ defmodule Hare.RPC.Server do
   defdelegate cast(server, message),          to: Hare.Actor
 
   @doc false
-  def init(_next, {mod, config, context, initial}) do
+  def init({config, context, mod, initial}) do
     with {:ok, declaration} <- build_declaration(config, context),
          {:ok, given}       <- mod_init(mod, initial) do
       {:ok, State.new(config, declaration, mod, given)}
@@ -262,7 +259,7 @@ defmodule Hare.RPC.Server do
   end
 
   @doc false
-  def declare(chan, _next, %{declaration: declaration} = state) do
+  def declare(chan, %{declaration: declaration} = state) do
     with {:ok, queue, exchange} <- Declaration.run(declaration, chan),
          {:ok, new_queue}       <- Queue.consume(queue, no_ack: true) do
       {:ok, State.declared(state, new_queue, exchange)}
@@ -272,7 +269,7 @@ defmodule Hare.RPC.Server do
   end
 
   @doc false
-  def handle_call(message, from, _next, %{mod: mod, given: given} = state) do
+  def handle_call(message, from, %{mod: mod, given: given} = state) do
     case mod.handle_call(message, from, given) do
       {:reply, reply, new_given} ->
         {:reply, reply, State.set(state, new_given)}
@@ -295,11 +292,11 @@ defmodule Hare.RPC.Server do
   end
 
   @doc false
-  def handle_cast(message, _next, state),
+  def handle_cast(message, state),
     do: handle_async(message, :handle_cast, state)
 
   @doc false
-  def handle_info(message, _next, %{queue: queue} = state) do
+  def handle_info(message, %{queue: queue} = state) do
     case Queue.handle(queue, message) do
       {:consume_ok, meta} ->
         handle_mod_ready(meta, state)
@@ -314,12 +311,12 @@ defmodule Hare.RPC.Server do
         handle_async(message, :handle_info, state)
     end
   end
-  def handle_info(message, _next, state) do
+  def handle_info(message, state) do
     handle_async(message, :handle_info, state)
   end
 
   @doc false
-  def terminate(reason, _next, %{mod: mod, given: given}),
+  def terminate(reason, %{mod: mod, given: given}),
     do: mod.terminate(reason, given)
 
   defp handle_mod_ready(meta, %{mod: mod, given: given} = state) do

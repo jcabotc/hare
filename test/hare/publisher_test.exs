@@ -1,8 +1,6 @@
 defmodule Hare.PublisherTest do
   use ExUnit.Case, async: true
 
-  alias Hare.Support.TestExtension
-
   alias Hare.Core.Conn
   alias Hare.Publisher
 
@@ -49,8 +47,7 @@ defmodule Hare.PublisherTest do
   test "publication" do
     {history, conn} = build_conn()
 
-    config = [extensions: [TestExtension],
-              exchange: [name: "foo",
+    config = [exchange: [name: "foo",
                          type: :fanout,
                          opts: [durable: true]]]
 
@@ -58,9 +55,6 @@ defmodule Hare.PublisherTest do
 
     send(publisher, :some_message)
     assert_receive {:info, :some_message}
-
-    send(publisher, {:test_extension, self()})
-    assert_receive :test_extension_success
 
     payload     = "some data"
     routing_key = "the key"
@@ -76,12 +70,12 @@ defmodule Hare.PublisherTest do
     assert [{:open_channel,
               [_given_conn],
               {:ok, given_chan_1}},
-            {:declare_exchange,
-              [given_chan_1, "foo", :fanout, [durable: true]],
-              :ok},
             {:monitor_channel,
               [given_chan_1],
               _ref},
+            {:declare_exchange,
+              [given_chan_1, "foo", :fanout, [durable: true]],
+              :ok},
             {:publish,
               [given_chan_1, "foo", ^payload, ^routing_key, []],
               :ok},

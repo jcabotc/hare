@@ -185,7 +185,7 @@ defmodule Hare.Publisher do
     end
   end
 
-  use Hare.Actor.Layer
+  use Hare.Actor
 
   alias __MODULE__.{Declaration, State}
   alias Hare.Core.{Exchange}
@@ -212,12 +212,9 @@ defmodule Hare.Publisher do
   @spec start_link(module, pid, config, initial :: term, GenServer.options) :: GenServer.on_start
   def start_link(mod, conn, config, initial, opts \\ []) do
     {context, opts} = Keyword.pop(opts, :context, @context)
-    extensions      = Keyword.get(config, :extensions, [])
+    args = {config, context, mod, initial}
 
-    layers = extensions ++ [__MODULE__]
-    args   = {mod, config, context, initial}
-
-    Hare.Actor.start_link(layers, conn, args, opts)
+    Hare.Actor.start_link(__MODULE__, conn, args, opts)
   end
 
   defdelegate call(server, message),          to: Hare.Actor
@@ -233,7 +230,7 @@ defmodule Hare.Publisher do
     do: Hare.Actor.cast(client, {:"$hare_publication", payload, routing_key, opts})
 
   @doc false
-  def init(_next, {mod, config, context, initial}) do
+  def init({config, context, mod, initial}) do
     with {:ok, declaration} <- build_declaration(config, context),
          {:ok, given}       <- mod_init(mod, initial) do
       {:ok, State.new(config, declaration, mod, given)}
@@ -255,7 +252,7 @@ defmodule Hare.Publisher do
   end
 
   @doc false
-  def declare(chan, _next, %{declaration: declaration} = state) do
+  def declare(chan, %{declaration: declaration} = state) do
     case Declaration.run(declaration, chan) do
       {:ok, exchange} ->
         {:ok, State.declared(state, exchange)}
@@ -266,7 +263,7 @@ defmodule Hare.Publisher do
   end
 
   @doc false
-  def handle_call(message, from, _next, %{mod: mod, given: given} = state) do
+  def handle_call(message, from, %{mod: mod, given: given} = state) do
     case mod.handle_call(message, from, given) do
       {:reply, reply, new_given} ->
         {:reply, reply, State.set(state, new_given)}
@@ -289,7 +286,7 @@ defmodule Hare.Publisher do
   end
 
   @doc false
-  def handle_cast({:"$hare_publication", payload, key, opts}, _next, %{mod: mod, given: given} = state) do
+  def handle_cast({:"$hare_publication", payload, key, opts}, %{mod: mod, given: given} = state) do
     case mod.before_publication(payload, key, opts, given) do
       {:ok, new_given} ->
         perform(payload, key, opts, new_given, state)
@@ -304,11 +301,11 @@ defmodule Hare.Publisher do
         {:stop, reason, State.set(state, new_given)}
     end
   end
-  def handle_cast(message, _next, state),
+  def handle_cast(message, state),
     do: handle_async(message, :handle_cast, state)
 
   @doc false
-  def handle_info(message, _next, state),
+  def handle_info(message, state),
     do: handle_async(message, :handle_info, state)
 
   @doc false
