@@ -24,10 +24,7 @@ defmodule Hare.Actor.StackTest do
   end
 
   defmodule TestMod do
-    def foo(pid) do
-      send(pid, :mod_foo)
-      :mod_foo_reply
-    end
+    def foo(_pid), do: :mod_foo_reply
   end
 
   test "new/2 and run/4" do
@@ -39,5 +36,9 @@ defmodule Hare.Actor.StackTest do
 
     assert :mod_foo_reply == Stack.run(stack, :foo, [], test_pid)
     assert_receive {:ext1, :foo, ^test_pid}
+
+    assert :ext1_bar_reply == Stack.run(stack, :bar, [1, 2], test_pid)
+    assert_receive {:ext1, :bar, 1, 2, ^test_pid}
+    refute_receive :ext2_called, 10
   end
 end
