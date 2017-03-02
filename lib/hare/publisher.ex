@@ -78,10 +78,11 @@ defmodule Hare.Publisher do
   the process will exit with reason `reason` without entering the loop, opening a channel,
   or calling `terminate/2`.
   """
-  @callback init(initial :: term) ::
-              {:ok, state} |
-              :ignore |
-              {:stop, reason :: term}
+  @callback init(initial :: term) :: on_init
+
+  @type on_init :: {:ok, state} |
+                   :ignore |
+                   {:stop, reason :: term}
 
   @doc """
   Called before a message will be published to the exchange.
@@ -103,11 +104,12 @@ defmodule Hare.Publisher do
   main loop and call `terminate(reason, state)` before the process exists with
   reason `reason`.
   """
-  @callback before_publication(payload, routing_key, opts :: term, state) ::
-              {:ok, state} |
-              {:ok, payload, routing_key, opts :: term, state} |
-              {:ignore, state} |
-              {:stop, reason :: term, state}
+  @callback before_publication(payload, routing_key, opts :: term, state) :: on_before_publication
+
+  @type on_before_publication :: {:ok, state} |
+                                 {:ok, payload, routing_key, opts :: term, state} |
+                                 {:ignore, state} |
+                                 {:stop, reason :: term, state}
 
   @doc """
   Called after a message has been published to the exchange.
@@ -121,9 +123,10 @@ defmodule Hare.Publisher do
   main loop and call `terminate(reason, state)` before the process exists with
   reason `reason`.
   """
-  @callback after_publication(payload, routing_key, opts :: term, state) ::
-              {:ok, state} |
-              {:stop, reason :: term, state}
+  @callback after_publication(payload, routing_key, opts :: term, state) :: on_after_publication
+
+  @type on_after_publication :: {:ok, state} |
+                                {:stop, reason :: term, state}
 
   @doc """
   Called when the process receives a message.
@@ -135,17 +138,19 @@ defmodule Hare.Publisher do
   main loop and call `terminate(reason, state)` before the process exists with
   reason `reason`.
   """
-  @callback handle_info(message :: term, state) ::
-              {:noreply, state} |
-              {:stop, reason :: term, state}
+  @callback handle_info(message :: term, state) :: on_handle_info
+
+  @type on_handle_info :: {:noreply, state} |
+                          {:stop, reason :: term, state}
 
   @doc """
   This callback is the same as the `GenServer` equivalent and is called when the
   process terminates. The first argument is the reason the process is about
   to exit with.
   """
-  @callback terminate(reason :: term, state) ::
-              any
+  @callback terminate(reason :: term, state) :: on_terminate
+
+  @type on_terminate :: any
 
   defmacro __using__(_opts \\ []) do
     quote location: :keep do
