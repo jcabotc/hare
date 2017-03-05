@@ -31,10 +31,10 @@ defmodule Hare.Context.Action.DeclareExchange do
   """
 
   @typedoc "The action configuration"
-  @type config :: %{required(:name)      => binary,
-                    optional(:type)      => atom,
-                    optional(:opts)      => Keyword.t,
-                    optional(:export_as) => atom}
+  @type config :: [name:      binary,
+                   type:      atom,
+                   opts:      Keyword.t,
+                   export_as: atom]
 
   @behaviour Hare.Context.Action
 
