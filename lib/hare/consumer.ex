@@ -237,7 +237,7 @@ defmodule Hare.Consumer do
     * `initial` - the value that will be given to `init/1`
     * `opts` - the GenServer options
   """
-  @spec start_link(module, pid, config, initial :: term, GenServer.options) :: GenServer.on_start
+  @spec start_link(module, GenServer.server, config, initial :: term, GenServer.options) :: GenServer.on_start
   def start_link(mod, conn, config, initial, opts \\ []) do
     {context, opts} = Keyword.pop(opts, :context, @context)
     args = {mod, conn, config, context, initial}

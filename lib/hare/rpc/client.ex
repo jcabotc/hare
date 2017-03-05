@@ -231,7 +231,7 @@ defmodule Hare.RPC.Client do
     * `initial` - the value that will be given to `init/1`
     * `opts` - the GenServer options
   """
-  @spec start_link(module, pid, config, initial :: term, GenServer.options) :: GenServer.on_start
+  @spec start_link(module, GenServer.server, config, initial :: term, GenServer.options) :: GenServer.on_start
   def start_link(mod, conn, config, initial, opts \\ []) do
     {context, opts} = Keyword.pop(opts, :context, @context)
     args = {mod, conn, config, context,  initial}
@@ -245,7 +245,7 @@ defmodule Hare.RPC.Client do
   A timeout bound to the same rules as the `GenServer` timeout may be
   specified (5 seconds by default)
   """
-  @spec request(pid, payload, routing_key, opts, timeout) ::
+  @spec request(GenServer.server, payload, routing_key, opts, timeout) ::
           {:ok, response :: binary} |
           {:error, reason :: term}
   def request(client, payload, routing_key \\ "", opts \\ [], timeout \\ 5000),
