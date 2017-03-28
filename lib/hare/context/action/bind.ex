@@ -44,12 +44,12 @@ defmodule Hare.Context.Action.Bind do
   """
 
   @typedoc "The action configuration"
-  @type config :: %{optional(:queue)                => binary,
-                    optional(:queue_from_export)    => atom,
-                    optional(:exchange)             => binary,
-                    optional(:exchange_from_export) => atom,
-                    optional(:opts)                 => Keyword.t,
-                    optional(:export_as)            => atom}
+  @type config :: [queue:                binary,
+                   queue_from_export:    atom,
+                   exchange:             binary,
+                   exchange_from_export: atom,
+                   opts:                 Keyword.t,
+                   export_as:            atom]
 
   @behaviour Hare.Context.Action
 

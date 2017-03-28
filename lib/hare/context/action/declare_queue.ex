@@ -29,9 +29,9 @@ defmodule Hare.Context.Action.DeclareQueue do
   """
 
   @typedoc "The action configuration"
-  @type config :: %{required(:name)      => binary,
-                    optional(:opts)      => Keyword.t,
-                    optional(:export_as) => atom}
+  @type config :: [name:      binary,
+                   opts:      Keyword.t,
+                   export_as: atom]
 
   @behaviour Hare.Context.Action
 
