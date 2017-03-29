@@ -209,7 +209,7 @@ defmodule Hare.Publisher do
     * `initial` - the value that will be given to `init/1`
     * `opts` - the GenServer options
   """
-  @spec start_link(module, pid, config, initial :: term, GenServer.options) :: GenServer.on_start
+  @spec start_link(module, GenServer.server, config, initial :: term, GenServer.options) :: GenServer.on_start
   def start_link(mod, conn, config, initial, opts \\ []) do
     {context, opts} = Keyword.pop(opts, :context, @context)
     args = {config, context, mod, initial}
@@ -225,7 +225,7 @@ defmodule Hare.Publisher do
   @doc """
   Publishes a message to an exchange through the `Hare.Publisher` process.
   """
-  @spec publish(pid, payload, routing_key, opts) :: :ok
+  @spec publish(GenServer.server, payload, routing_key, opts) :: :ok
   def publish(client, payload, routing_key \\ "", opts \\ []),
     do: Hare.Actor.cast(client, {:"$hare_publication", payload, routing_key, opts})
 
