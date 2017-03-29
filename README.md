@@ -59,7 +59,7 @@ MyPublisher.publish(publisher, "hello world!")
 
 If [available in Hex](https://hex.pm/docs/publish), the package can be installed as:
 
-  1. Add `hare` to your list of dependencies in `mix.exs`:
+1. Add `hare` to your list of dependencies in `mix.exs`:
 
     ```elixir
     def deps do
@@ -68,7 +68,7 @@ If [available in Hex](https://hex.pm/docs/publish), the package can be installed
     end
     ```
 
-  2. Ensure `hare` is started before your application:
+2. Ensure `hare` is started before your application:
 
     ```elixir
     def application do
