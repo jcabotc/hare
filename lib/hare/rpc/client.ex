@@ -23,7 +23,7 @@ defmodule Hare.RPC.Client do
       {:ok, MapSet.new}
     end
 
-    def handle_request(payload, _routing_key, _opts, state) do
+    def before_request(payload, _routing_key, _opts, state) do
       case MapSet.member?(cache, payload) do
         {:ok, response} -> {:reply, "already_requested", state}
         :error          -> {:ok, MapSet.put(state, payload)}
@@ -44,8 +44,7 @@ defmodule Hare.RPC.Client do
   ## Context setup
 
   The context setup process for a RPC client is to declare the exchange to perform
-  requests to, declare a exclusive server-named queue to receive responses, and consume
-  that server-named queue.
+  requests to, declare a exclusive server-named queue to receive responses, and consume that server-named queue.
 
   Every time a channel is open the context is set up, meaning that the exchange and
   a new server-named queue are declared, and the queue is consumed through the
@@ -57,8 +56,10 @@ defmodule Hare.RPC.Client do
   """
 
   @type payload     :: Hare.Adapter.payload
+  @type response    :: payload
   @type routing_key :: Hare.Adapter.routing_key
   @type opts        :: Hare.Adapter.opts
+  @type from        :: GenServer.from
   @type meta        :: map
   @type state       :: term
 
@@ -86,27 +87,6 @@ defmodule Hare.RPC.Client do
               :ignore |
               {:stop, reason :: term}
 
-
-  @doc """
-  Called every time the channel has been opened, the exchange and the
-  server-named queue declared, and the queue consumed.
-
-  It is called with two arguments: some metadata and the process' internal state.
-
-  The metadata is a map with the following fields:
-
-    * `:req_exchange` - the `Hare.Core.Exchange` to issue requests to
-    * `:resp_queue` - the server-named `Hare.Core.Queue` to consume the responses from
-
-  Returning `{:noreply, state}` will cause the process to enter the main loop
-  with `state` as its internal state.
-
-  Returning `{:stop, reason, state}` will terminate the loop and call
-  `terminate(reason, state)` before the process exists with reason `reason`.
-  """
-  @callback connected(meta, state) ::
-              {:noreply, state} |
-              {:stop, reason :: term, state}
 
   @doc """
   Called when the AMQP server has registered the process as a consumer of the
@@ -142,15 +122,74 @@ defmodule Hare.RPC.Client do
   without performing the request with the given response, and enter the main
   loop again with the given state.
 
+  Returning `{:stop, reason, response, state}` will not send the message,
+  respond to the caller with `response`, and terminate the main loop
+  and call `terminate(reason, state)` before the process exists with
+  reason `reason`.
+
   Returning `{:stop, reason, state}` will not send the message, terminate the
   main loop and call `terminate(reason, state)` before the process exists with
   reason `reason`.
   """
-  @callback handle_request(payload, routing_key, opts :: term, state) ::
+  @callback before_request(payload, routing_key, opts :: term, from, state) ::
               {:ok, state} |
               {:ok, payload, routing_key, opts :: term, state} |
-              {:reply, response :: term, state} |
-              {:stop, reason :: term, response :: binary, state}
+              {:reply, response, state} |
+              {:stop, reason :: term, response, state} |
+              {:stop, reason :: term, state}
+
+  @doc """
+  Called when a response has been received, before it is delivered to the caller.
+
+  It receives as argument the message payload, the routing key, the options
+  for that publication, the response, and the internal state.
+
+  Returning `{:reply, reply, state}` will cause the given reply to be
+  delivered to the caller instead of the original response, and enter
+  the main loop with the given state.
+
+  Returning `{:noreply, state}` will enter the main loop with the given state
+  without responding to the caller (that will eventually timeout or keep blocked
+  forever if the timeout was set to `:infinity`).
+
+  Returning `{:stop, reason, reply, state}` will deliver the given reply to
+  the caller instead of the original response and call `terminate(reason, state)`
+  before the process exists with reason `reason`.
+
+  Returning `{:stop, reason, state}` not reply to the caller and call
+  `terminate(reason, state)` before the process exists with reason `reason`.
+  """
+  @callback on_response(response, from, state) ::
+              {:reply, response, state} |
+              {:noreply, state} |
+              {:stop, reason :: term, response, state} |
+              {:stop, reason :: term, state}
+
+  @doc """
+  Called when a request has timed out.
+
+  It receives as argument the message payload, the routing key, the options
+  for that publication, and the internal state.
+
+  Returning `{:reply, reply, state}` will cause the given reply to be
+  delivered to the caller, and enter the main loop with the given state.
+
+  Returning `{:noreply, state}` will enter the main loop with the given state
+  without responding to the caller (that will eventually timeout or keep blocked
+  forever if the timeout was set to `:infinity`).
+
+  Returning `{:stop, reason, reply, state}` will deliver the given reply to
+  the caller, and call `terminate(reason, state)` before the process exists
+  with reason `reason`.
+
+  Returning `{:stop, reason, state}` will not reply to the caller and call
+  `terminate(reason, state)` before the process exists with reason `reason`.
+  """
+  @callback on_timeout(from, state) ::
+              {:reply, response, state} |
+              {:noreply, state} |
+              {:stop, reason :: term, response, state} |
+              {:stop, reason :: term, state}
 
   @doc """
   Called when the process receives a message.
@@ -183,16 +222,28 @@ defmodule Hare.RPC.Client do
         do: {:ok, initial}
 
       @doc false
-      def connected(_meta, state),
-        do: {:noreply, state}
-
-      @doc false
       def handle_ready(_meta, state),
         do: {:noreply, state}
 
       @doc false
-      def handle_request(_payload, _routing_key, _meta, state),
+      def before_request(_payload, _routing_key, _meta, _from, state),
         do: {:ok, state}
+
+      @doc false
+      def on_timeout(_from, state),
+        do: {:reply, {:error, :timeout}, state}
+
+      @doc false
+      def on_response(response, _from, state),
+        do: {:reply, {:ok, response}, state}
+
+      @doc false
+      def handle_call(message, _from, state),
+        do: {:stop, {:bad_call, message}, state}
+
+      @doc false
+      def handle_cast(message, state),
+        do: {:stop, {:bad_cast, message}, state}
 
       @doc false
       def handle_info(_message, state),
@@ -202,15 +253,16 @@ defmodule Hare.RPC.Client do
       def terminate(_reason, _state),
         do: :ok
 
-      defoverridable [init: 1, terminate: 2, connected: 2,
-                      handle_ready: 2, handle_request: 4, handle_info: 2]
+      defoverridable [init: 1, terminate: 2, handle_ready: 2,
+                      handle_call: 3, handle_cast: 2, handle_info: 2,
+                      before_request: 5, on_timeout: 2, on_response: 3]
     end
   end
 
-  use Connection
+  use Hare.Actor
 
   alias __MODULE__.{Declaration, Runtime, State}
-  alias Hare.Core.{Chan, Queue, Exchange}
+  alias Hare.Core.{Queue, Exchange}
 
   @context Hare.Context
 
@@ -234,9 +286,9 @@ defmodule Hare.RPC.Client do
   @spec start_link(module, pid, config, initial :: term, GenServer.options) :: GenServer.on_start
   def start_link(mod, conn, config, initial, opts \\ []) do
     {context, opts} = Keyword.pop(opts, :context, @context)
-    args = {mod, conn, config, context,  initial}
+    args = {config, context, mod, initial}
 
-    Connection.start_link(__MODULE__, args, opts)
+    Hare.Actor.start_link(__MODULE__, conn, args, opts)
   end
 
   @doc """
@@ -246,54 +298,57 @@ defmodule Hare.RPC.Client do
   specified (5 seconds by default)
   """
   @spec request(pid, payload, routing_key, opts, timeout) ::
-          {:ok, response :: binary} |
-          {:error, reason :: term}
+          response :: term
   def request(client, payload, routing_key \\ "", opts \\ [], timeout \\ 5000),
-    do: Connection.call(client, {:request, payload, routing_key, opts}, timeout)
+    do: Hare.Actor.call(client, {:"$hare_request", payload, routing_key, opts}, timeout)
+
+  defdelegate call(server, message),          to: Hare.Actor
+  defdelegate call(server, message, timeout), to: Hare.Actor
+  defdelegate cast(server, message),          to: Hare.Actor
+  defdelegate reply(from, message),           to: Hare.Actor
 
   @doc false
-  def init({mod, conn, config, context, initial}) do
-    with {:ok, declaration}  <- Declaration.parse(config, context),
-         {:ok, runtime_opts} <- Runtime.parse(config),
-         {:ok, given}        <- mod.init(initial) do
-      {:connect, :init, State.new(conn, declaration, runtime_opts, mod, given)}
-    else
-      {:error, reason} -> {:stop, {:config_error, reason, config}}
-      other            -> other
+  def init({config, context, mod, initial}) do
+    with {:ok, declaration}  <- build_declaration(config, context),
+         {:ok, runtime_opts} <- parse_runtime(config),
+         {:ok, given}        <- mod_init(mod, initial) do
+      {:ok, State.new(config, declaration, runtime_opts, mod, given)}
+    end
+  end
+
+  defp build_declaration(config, context) do
+    with {:error, reason} <- Declaration.parse(config, context) do
+      {:stop, {:config_error, reason, config}}
+    end
+  end
+
+  defp parse_runtime(config) do
+    with {:error, reason} <- Runtime.parse(config) do
+      {:stop, {:config_error, reason, config}}
+    end
+  end
+
+  defp mod_init(mod, initial) do
+    case mod.init(initial) do
+      {:ok, given}    -> {:ok, given}
+      :ignore         -> :ignore
+      {:stop, reason} -> {:stop, reason}
     end
   end
 
   @doc false
-  def connect(_info, %{conn: conn, declaration: declaration} = state) do
-    with {:ok, chan}                     <- Chan.open(conn),
-         {:ok, resp_queue, req_exchange} <- Declaration.run(declaration, chan),
+  def declare(chan, %{declaration: declaration} = state) do
+    with {:ok, resp_queue, req_exchange} <- Declaration.run(declaration, chan),
          {:ok, new_resp_queue}           <- Queue.consume(resp_queue, no_ack: true) do
-      handle_connected(state, chan, new_resp_queue, req_exchange)
+      {:ok, State.declared(state, new_resp_queue, req_exchange)}
     else
-      {:error, reason} -> {:stop, reason}
-    end
-  end
-
-  defp handle_connected(%{mod: mod, given: given} = state, chan, resp_queue, req_exchange) do
-    ref  = Chan.monitor(chan)
-    meta = complete(%{}, state)
-
-    case mod.connected(meta, given) do
-      {:noreply, new_given} ->
-        {:ok, State.connected(state, chan, ref, resp_queue, req_exchange, new_given)}
-
-      {:stop, reason, new_given} ->
-        {:stop, reason, State.connected(state, chan, ref, resp_queue, req_exchange, new_given)}
+      {:error, reason} -> {:stop, reason, state}
     end
   end
 
   @doc false
-  def disconnect(_info, state),
-    do: {:stop, :normal, state}
-
-  @doc false
-  def handle_call({:request, payload, routing_key, opts}, from, %{mod: mod, given: given} = state) do
-    case mod.handle_request(payload, routing_key, opts, given) do
+  def handle_call({:"$hare_request", payload, routing_key, opts}, from, %{mod: mod, given: given} = state) do
+    case mod.before_request(payload, routing_key, opts, from, given) do
       {:ok, new_given} ->
         correlation_id = perform(payload, routing_key, opts, state)
         set_request_timeout(correlation_id, state)
@@ -304,28 +359,52 @@ defmodule Hare.RPC.Client do
         {:noreply, State.set(state, new_given, correlation_id, from)}
 
       {:reply, response, new_given} ->
-        {:reply, {:ok, response}, State.set(state, new_given)}
+        {:reply, response, State.set(state, new_given)}
 
       {:stop, reason, response, new_given} ->
-        {:stop, reason, {:ok, response}, State.set(state, new_given)}
+        {:stop, reason, response, State.set(state, new_given)}
+
+      {:stop, reason, new_given} ->
+        {:stop, reason, State.set(state, new_given)}
+    end
+  end
+  def handle_call(message, from, %{mod: mod, given: given} = state) do
+    case mod.handle_call(message, from, given) do
+      {:reply, reply, new_given} ->
+        {:reply, reply, State.set(state, new_given)}
+
+      {:reply, reply, new_given, timeout} ->
+        {:reply, reply, State.set(state, new_given), timeout}
+
+      {:noreply, new_given} ->
+        {:noreply, State.set(state, new_given)}
+
+      {:noreply, new_given, timeout} ->
+        {:noreply, State.set(state, new_given), timeout}
+
+      {:stop, reason, reply, new_given} ->
+        {:stop, reason, reply, State.set(state, new_given)}
+
+      {:stop, reason, new_given} ->
+        {:stop, reason, State.set(state, new_given)}
     end
   end
 
   @doc false
-  def handle_info({:DOWN, ref, _, _, _reason}, %{status: :connected, ref: ref} = state) do
-    {:connect, :down, State.chan_down(state)}
-  end
+  def handle_cast(message, state),
+    do: handle_async(message, :handle_cast, state)
+
+  @doc false
   def handle_info({:request_timeout, correlation_id}, state) do
     case State.pop_waiting(state, correlation_id) do
       {:ok, from, new_state} ->
-        GenServer.reply(from, {:error, :timeout})
-        {:noreply, new_state}
+        handle_mod_on_timeout(from, new_state)
 
       :unknown ->
         {:noreply, state}
     end
   end
-  def handle_info(message, %{status: :connected, resp_queue: queue} = state) do
+  def handle_info(message, %{resp_queue: queue} = state) do
     case Queue.handle(queue, message) do
       {:consume_ok, meta} ->
         handle_mod_ready(meta, state)
@@ -337,24 +416,33 @@ defmodule Hare.RPC.Client do
         {:stop, :cancelled, state}
 
       :unknown ->
-        handle_mod_info(message, state)
+        handle_async(message, :handle_info, state)
     end
   end
-  def handle_info(message, state) do
-    handle_mod_info(message, state)
-  end
+  def handle_info(message, state),
+    do: handle_async(message, :handle_info, state)
 
   @doc false
-  def terminate(reason, %{status: :connected, chan: chan} = state) do
-    mod_terminate(reason, state)
-    Chan.close(chan)
-  end
-  def terminate(reason, state) do
-    mod_terminate(reason, state)
-  end
-
-  defp mod_terminate(reason, %{mod: mod, given: given}),
+  def terminate(reason, %{mod: mod, given: given}),
     do: mod.terminate(reason, given)
+
+  defp handle_mod_on_timeout(from, %{mod: mod, given: given} = state) do
+    case mod.on_timeout(from, given) do
+      {:reply, response, new_given} ->
+        GenServer.reply(from, response)
+        {:noreply, State.set(state, new_given)}
+
+      {:noreply, new_given} ->
+        {:noreply, State.set(state, new_given)}
+
+      {:stop, reason, response, new_given} ->
+        GenServer.reply(from, response)
+        {:stop, reason, State.set(state, new_given)}
+
+      {:stop, reason, new_given} ->
+        {:stop, reason, State.set(state, new_given)}
+    end
+  end
 
   defp handle_mod_ready(meta, %{mod: mod, given: given} = state) do
     case mod.handle_ready(complete(meta, state), given) do
@@ -369,18 +457,25 @@ defmodule Hare.RPC.Client do
   defp handle_response(payload, %{correlation_id: correlation_id}, state) do
     case State.pop_waiting(state, correlation_id) do
       {:ok, from, new_state} ->
-        GenServer.reply(from, {:ok, payload})
-        {:noreply, new_state}
+        handle_mod_on_response(payload, from, new_state)
 
       :unknown ->
         {:noreply, state}
     end
   end
 
-  defp handle_mod_info(message, %{mod: mod, given: given} = state) do
-    case mod.handle_info(message, given) do
+  defp handle_mod_on_response(payload, from, %{mod: mod, given: given} = state) do
+    case mod.on_response(payload, from, given) do
+      {:reply, response, new_given} ->
+        GenServer.reply(from, response)
+        {:noreply, State.set(state, new_given)}
+
       {:noreply, new_given} ->
         {:noreply, State.set(state, new_given)}
+
+      {:stop, reason, response, new_given} ->
+        GenServer.reply(from, response)
+        {:stop, reason, State.set(state, new_given)}
 
       {:stop, reason, new_given} ->
         {:stop, reason, State.set(state, new_given)}
@@ -411,5 +506,18 @@ defmodule Hare.RPC.Client do
   defp set_request_timeout(correlation_id, %{runtime_opts: %{timeout: timeout}}) do
     if timeout != :infinity,
       do: Process.send_after(self(), {:request_timeout, correlation_id}, timeout)
+  end
+
+  defp handle_async(message, fun, %{mod: mod, given: given} = state) do
+    case apply(mod, fun, [message, given]) do
+      {:noreply, new_given} ->
+        {:noreply, State.set(state, new_given)}
+
+      {:noreply, new_given, timeout} ->
+        {:noreply, State.set(state, new_given), timeout}
+
+      {:stop, reason, new_given} ->
+        {:stop, reason, State.set(state, new_given)}
+    end
   end
 end

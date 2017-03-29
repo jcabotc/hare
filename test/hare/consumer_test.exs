@@ -57,23 +57,23 @@ defmodule Hare.ConsumerTest do
               bind: [routing_key: "baz"],
               bind: [routing_key: "qux"]]
 
-    {:ok, rpc_server} = TestConsumer.start_link(conn, config, self())
+    {:ok, consumer} = TestConsumer.start_link(conn, config, self())
 
-    send(rpc_server, {:consume_ok, %{bar: "baz"}})
+    send(consumer, {:consume_ok, %{bar: "baz"}})
     assert_receive {:ready, %{bar: "baz", queue: queue, exchange: exchange}}
     assert %{chan: chan, name: "bar"} = queue
     assert %{chan: ^chan, name: "foo"} = exchange
 
-    send(rpc_server, :some_message)
+    send(consumer, :some_message)
     assert_receive {:info, :some_message}
 
     payload = "some data"
     meta    = %{}
 
-    send(rpc_server, {:deliver, "ack - #{payload}", meta})
-    send(rpc_server, {:deliver, "nack - #{payload}", meta})
-    send(rpc_server, {:deliver, "reject - #{payload}", meta})
-    send(rpc_server, {:deliver, payload, meta})
+    send(consumer, {:deliver, "ack - #{payload}", meta})
+    send(consumer, {:deliver, "nack - #{payload}", meta})
+    send(consumer, {:deliver, "reject - #{payload}", meta})
+    send(consumer, {:deliver, payload, meta})
 
     expected_meta = Map.merge(meta, %{queue: queue, exchange: exchange})
     assert_receive {:message, ^payload,                ^expected_meta}
@@ -84,6 +84,9 @@ defmodule Hare.ConsumerTest do
     assert [{:open_channel,
               [_given_conn],
               {:ok, given_chan_1}},
+            {:monitor_channel,
+              [given_chan_1],
+              _ref},
             {:declare_exchange,
               [given_chan_1, "foo", :direct, [durable: true]],
               :ok},
@@ -97,11 +100,8 @@ defmodule Hare.ConsumerTest do
               [given_chan_1, "bar", "foo", [routing_key: "qux"]],
               :ok},
             {:consume,
-              [given_chan_1, "bar", ^rpc_server, []],
+              [given_chan_1, "bar", ^consumer, []],
               {:ok, _consumer_tag}},
-            {:monitor_channel,
-              [given_chan_1],
-              _ref},
             {:ack,
               [given_chan_1, _meta_ack, []],
               :ok},
@@ -120,13 +120,16 @@ defmodule Hare.ConsumerTest do
     payload = "another data"
     meta    = %{}
 
-    send(rpc_server, {:deliver, payload, meta})
+    send(consumer, {:deliver, payload, meta})
     assert_receive {:message, ^payload, _meta}
     Process.sleep(10)
 
     assert [{:open_channel,
               [_given_conn],
               {:ok, given_chan_2}},
+            {:monitor_channel,
+              [given_chan_2],
+              _ref},
             {:declare_exchange,
               [given_chan_2, "foo", :direct, [durable: true]],
               :ok},
@@ -140,11 +143,8 @@ defmodule Hare.ConsumerTest do
               [given_chan_2, "bar", "foo", [routing_key: "qux"]],
               :ok},
             {:consume,
-              [given_chan_2, "bar", ^rpc_server, []],
-              {:ok, _consumer_tag}},
-            {:monitor_channel,
-              [given_chan_2],
-              _ref}
+              [given_chan_2, "bar", ^consumer, []],
+              {:ok, _consumer_tag}}
            ] = Adapter.Backdoor.last_events(history, 7)
 
     assert given_chan_1 != given_chan_2

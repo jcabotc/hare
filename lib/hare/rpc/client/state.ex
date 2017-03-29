@@ -3,36 +3,22 @@ defmodule Hare.RPC.Client.State do
 
   alias __MODULE__
 
-  defstruct [:conn, :declaration, :runtime_opts,
+  defstruct [:config,
+             :declaration, :runtime_opts, :resp_queue, :req_exchange,
              :mod, :given,
-             :chan, :ref, :resp_queue, :req_exchange,
-             :status, :waiting]
+             :waiting]
 
-  def new(conn, declaration, runtime_opts, mod, given) do
-    %State{mod:          mod,
+  def new(config, declaration, runtime_opts, mod, given) do
+    %State{config:       config,
            declaration:  declaration,
            runtime_opts: runtime_opts,
-           conn:         conn,
+           mod:          mod,
            given:        given,
-           waiting:      %{},
-           status:       :not_connected}
+           waiting:      %{}}
   end
 
-  def connected(%State{} = state, chan, ref, resp_queue, req_exchange, new_given) do
-    %{state | chan:         chan,
-              ref:          ref,
-              resp_queue:   resp_queue,
-              req_exchange: req_exchange,
-              status:       :connected,
-              given:        new_given}
-  end
-
-  def chan_down(%State{} = state) do
-    %{state | chan:         nil,
-              ref:          nil,
-              resp_queue:   nil,
-              req_exchange: nil,
-              status:       :not_connected}
+  def declared(%State{} = state, resp_queue, req_exchange) do
+    %{state | resp_queue: resp_queue, req_exchange: req_exchange}
   end
 
   def set(%State{} = state, given) do

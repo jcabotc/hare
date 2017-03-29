@@ -1,0 +1,89 @@
+defmodule Hare.ActorTest do
+  use ExUnit.Case, async: true
+
+  defmodule TestActor do
+    use Hare.Actor
+
+    def start_link(conn, test_pid),
+      do: Hare.Actor.start_link(__MODULE__, conn, test_pid)
+
+    defdelegate call(actor, message), to: Hare.Actor
+    defdelegate cast(actor, message), to: Hare.Actor
+
+    def declare(chan, pid) do
+      send(pid, {:declare, chan})
+      {:ok, pid}
+    end
+
+    def handle_call(:do_reply_directly, _from, pid) do
+      {:reply, :direct_reply, pid}
+    end
+    def handle_call(:do_reply_indirectly, from, pid) do
+      Hare.Actor.reply(from, :indirect_reply)
+      {:noreply, pid}
+    end
+
+    def handle_cast({:do_stop, reason}, pid) do
+      {:stop, reason, pid}
+    end
+    def handle_cast(message, pid) do
+      send(pid, {:cast, message})
+      {:noreply, pid}
+    end
+
+    def handle_info(message, pid) do
+      send(pid, {:info, message})
+      {:noreply, pid}
+    end
+
+    def terminate(reason, pid) do
+      send(pid, {:terminate, reason})
+    end
+  end
+
+  alias Hare.Adapter.Sandbox, as: Adapter
+
+  test "everything" do
+    test_pid = self()
+
+    {:ok, history} = Adapter.Backdoor.start_history()
+
+    config = [adapter: Adapter,
+              config:  [history: history]]
+
+    {:ok, conn} = Hare.Conn.start_link(config)
+
+    # init and declare
+    #
+    {:ok, actor} = TestActor.start_link(conn, test_pid)
+    assert_receive {:declare, chan_1}
+
+    # handle_call
+    #
+    assert :direct_reply   == TestActor.call(actor, :do_reply_directly)
+    assert :indirect_reply == TestActor.call(actor, :do_reply_indirectly)
+
+    # on chan crash
+    #
+    Adapter.Backdoor.crash(chan_1.given, :normal)
+    assert_receive {:declare, chan_2}
+    assert chan_1 != chan_2
+
+    # handle_info
+    #
+    send(actor, "baz")
+    assert_receive {:info, "baz"}
+
+    # handle_cast and terminate
+    #
+    TestActor.cast(actor, :foo)
+    assert_receive {:cast, :foo}
+
+    ref = Process.monitor(actor)
+    Process.unlink(actor)
+    TestActor.cast(actor, {:do_stop, :a_reason})
+
+    assert_receive {:terminate, :a_reason}
+    assert_receive {:DOWN, ^ref, _, _, :a_reason}
+  end
+end

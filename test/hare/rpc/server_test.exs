@@ -73,11 +73,16 @@ defmodule Hare.RPC.ServerTest do
     expected_meta = Map.merge(meta, %{queue: queue, exchange: exchange})
     assert_receive {:message, payload, ^expected_meta}
 
+    Process.sleep(20)
+
     reply   = "received: #{payload}"
     headers = [correlation_id: 10]
     assert [{:open_channel,
               [_given_conn],
               {:ok, given_chan_1}},
+            {:monitor_channel,
+              [given_chan_1],
+              _ref},
             {:declare_exchange,
               [given_chan_1, "foo", :fanout, [durable: true]],
               :ok},
@@ -90,9 +95,6 @@ defmodule Hare.RPC.ServerTest do
             {:consume,
               [given_chan_1, "bar", ^rpc_server, [no_ack: true]],
               {:ok, _consumer_tag}},
-            {:monitor_channel,
-              [given_chan_1],
-              _ref},
             {:publish,
               [given_chan_1, "", ^reply, "response_queue", ^headers],
               :ok}
@@ -114,6 +116,9 @@ defmodule Hare.RPC.ServerTest do
     assert [{:open_channel,
               [_given_conn],
               {:ok, given_chan_2}},
+            {:monitor_channel,
+              [given_chan_2],
+              _ref},
             {:declare_exchange,
               [given_chan_2, "foo", :fanout, [durable: true]],
               :ok},
@@ -126,9 +131,6 @@ defmodule Hare.RPC.ServerTest do
             {:consume,
               [given_chan_2, "bar", ^rpc_server, [no_ack: true]],
               {:ok, _consumer_tag}},
-            {:monitor_channel,
-              [given_chan_2],
-              _ref},
             {:publish,
               [given_chan_2, "", ^reply, "response_queue", ^headers],
               :ok}

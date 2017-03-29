@@ -88,27 +88,6 @@ defmodule Hare.RPC.Server do
               GenServer.on_start
 
   @doc """
-  Called every time the channel has been opened and the queue, exchange, and
-  binding has been declared.
-
-  It is called with two arguments: some metadata and the process' internal state.
-
-  The metadata is a map with a two fields:
-
-    * `:queue` - the `Hare.Core.Queue` to consume from
-    * `:exchange` - the `Hare.Core.Exchange` the queue is bound to
-
-  Returning `{:noreply, state}` will cause the process to enter the main loop
-  with `state` as its internal state.
-
-  Returning `{:stop, reason, state}` will terminate the loop and call
-  `terminate(reason, state)` before the process exists with reason `reason`.
-  """
-  @callback connected(meta, state) ::
-              {:noreply, state} |
-              {:stop, reason :: term, state}
-
-  @doc """
   Called when the AMQP server has registered the process as a RPC server and it
   will start to receive requests.
 
@@ -176,16 +155,20 @@ defmodule Hare.RPC.Server do
         do: {:ok, initial}
 
       @doc false
-      def connected(_meta, state),
-        do: {:noreply, state}
-
-      @doc false
       def handle_ready(_meta, state),
         do: {:noreply, state}
 
       @doc false
       def handle_request(_payload, _meta, state),
         do: {:noreply, state}
+
+      @doc false
+      def handle_call(message, _from, state),
+        do: {:stop, {:bad_call, message}, state}
+
+      @doc false
+      def handle_cast(message, state),
+        do: {:stop, {:bad_cast, message}, state}
 
       @doc false
       def handle_info(_message, state),
@@ -195,15 +178,16 @@ defmodule Hare.RPC.Server do
       def terminate(_reason, _state),
         do: :ok
 
-      defoverridable [init: 1, connected: 2, terminate: 2,
-                      handle_ready: 2, handle_request: 3, handle_info: 2]
+      defoverridable [init: 1, terminate: 2,
+                      handle_ready: 2, handle_request: 3,
+                      handle_call: 3, handle_cast: 2, handle_info: 2]
     end
   end
 
-  use Connection
+  use Hare.Actor
 
   alias __MODULE__.{Declaration, State}
-  alias Hare.Core.{Chan, Queue, Exchange}
+  alias Hare.Core.{Queue, Exchange}
 
   @context Hare.Context
 
@@ -229,14 +213,14 @@ defmodule Hare.RPC.Server do
   @spec start_link(module, pid, config, initial :: term, GenServer.options) :: GenServer.on_start
   def start_link(mod, conn, config, initial, opts \\ []) do
     {context, opts} = Keyword.pop(opts, :context, @context)
-    args = {mod, conn, config, context, initial}
+    args = {config, context, mod, initial}
 
-    Connection.start_link(__MODULE__, args, opts)
+    Hare.Actor.start_link(__MODULE__, conn, args, opts)
   end
 
-  @doc "Responds a request given its meta"
+  @doc "Responds a request given its meta or replies to a call/2 caller"
   @spec reply(meta, response :: binary) :: :ok
-  def reply(meta, response) do
+  def reply(meta, response) when is_map(meta) do
     %{exchange:       exchange,
       reply_to:       target,
       correlation_id: correlation_id} = meta
@@ -244,51 +228,75 @@ defmodule Hare.RPC.Server do
     opts = [correlation_id: correlation_id]
     Exchange.publish(exchange, response, target, opts)
   end
+  def reply(from, message) do
+    Hare.Actor.reply(from, message)
+  end
+
+  defdelegate call(server, message),          to: Hare.Actor
+  defdelegate call(server, message, timeout), to: Hare.Actor
+  defdelegate cast(server, message),          to: Hare.Actor
 
   @doc false
-  def init({mod, conn, config, context, initial}) do
-    with {:ok, declaration} <- Declaration.parse(config, context),
-         {:ok, given}       <- mod.init(initial) do
-      {:connect, :init, State.new(conn, declaration, mod, given)}
-    else
-      {:error, reason} -> {:stop, {:config_error, reason, config}}
-      other            -> other
+  def init({config, context, mod, initial}) do
+    with {:ok, declaration} <- build_declaration(config, context),
+         {:ok, given}       <- mod_init(mod, initial) do
+      {:ok, State.new(config, declaration, mod, given)}
+    end
+  end
+
+  defp build_declaration(config, context) do
+    with {:error, reason} <- Declaration.parse(config, context) do
+      {:stop, {:config_error, reason, config}}
+    end
+  end
+
+  defp mod_init(mod, initial) do
+    case mod.init(initial) do
+      {:ok, given}    -> {:ok, given}
+      :ignore         -> :ignore
+      {:stop, reason} -> {:stop, reason}
     end
   end
 
   @doc false
-  def connect(_info, %{conn: conn, declaration: declaration} = state) do
-    with {:ok, chan}            <- Chan.open(conn),
-         {:ok, queue, exchange} <- Declaration.run(declaration, chan),
+  def declare(chan, %{declaration: declaration} = state) do
+    with {:ok, queue, exchange} <- Declaration.run(declaration, chan),
          {:ok, new_queue}       <- Queue.consume(queue, no_ack: true) do
-      handle_connected(state, chan, new_queue, exchange)
+      {:ok, State.declared(state, new_queue, exchange)}
     else
-      {:error, reason} -> {:stop, reason}
+      {:error, reason} -> {:stop, reason, state}
     end
   end
 
-  defp handle_connected(%{mod: mod, given: given} = state, chan, queue, exchange) do
-    ref  = Chan.monitor(chan)
-    meta = complete(%{}, state)
+  @doc false
+  def handle_call(message, from, %{mod: mod, given: given} = state) do
+    case mod.handle_call(message, from, given) do
+      {:reply, reply, new_given} ->
+        {:reply, reply, State.set(state, new_given)}
 
-    case mod.connected(meta, given) do
+      {:reply, reply, new_given, timeout} ->
+        {:reply, reply, State.set(state, new_given), timeout}
+
       {:noreply, new_given} ->
-        {:ok, State.connected(state, chan, ref, queue, exchange, new_given)}
+        {:noreply, State.set(state, new_given)}
+
+      {:noreply, new_given, timeout} ->
+        {:noreply, State.set(state, new_given), timeout}
+
+      {:stop, reason, reply, new_given} ->
+        {:stop, reason, reply, State.set(state, new_given)}
 
       {:stop, reason, new_given} ->
-        {:stop, reason, State.connected(state, chan, ref, queue, exchange, new_given)}
+        {:stop, reason, State.set(state, new_given)}
     end
   end
 
   @doc false
-  def disconnect(_info, state),
-    do: {:stop, :normal, state}
+  def handle_cast(message, state),
+    do: handle_async(message, :handle_cast, state)
 
   @doc false
-  def handle_info({:DOWN, ref, _, _, _reason}, %{status: :connected, ref: ref} = state) do
-    {:connect, :down, State.chan_down(state)}
-  end
-  def handle_info(message, %{status: :connected, queue: queue} = state) do
+  def handle_info(message, %{queue: queue} = state) do
     case Queue.handle(queue, message) do
       {:consume_ok, meta} ->
         handle_mod_ready(meta, state)
@@ -300,23 +308,15 @@ defmodule Hare.RPC.Server do
         {:stop, :cancelled, state}
 
       :unknown ->
-        handle_mod_info(message, state)
+        handle_async(message, :handle_info, state)
     end
   end
   def handle_info(message, state) do
-    handle_mod_info(message, state)
+    handle_async(message, :handle_info, state)
   end
 
   @doc false
-  def terminate(reason, %{status: :connected, chan: chan} = state) do
-    mod_terminate(reason, state)
-    Chan.close(chan)
-  end
-  def terminate(reason, state) do
-    mod_terminate(reason, state)
-  end
-
-  defp mod_terminate(reason, %{mod: mod, given: given}),
+  def terminate(reason, %{mod: mod, given: given}),
     do: mod.terminate(reason, given)
 
   defp handle_mod_ready(meta, %{mod: mod, given: given} = state) do
@@ -345,16 +345,19 @@ defmodule Hare.RPC.Server do
     end
   end
 
-  defp handle_mod_info(message, %{mod: mod, given: given} = state) do
-    case mod.handle_info(message, given) do
+  defp complete(meta, %{queue: queue, exchange: exchange}),
+    do: meta |> Map.put(:exchange, exchange) |> Map.put(:queue, queue)
+
+  defp handle_async(message, fun, %{mod: mod, given: given} = state) do
+    case apply(mod, fun, [message, given]) do
       {:noreply, new_given} ->
         {:noreply, State.set(state, new_given)}
+
+      {:noreply, new_given, timeout} ->
+        {:noreply, State.set(state, new_given), timeout}
 
       {:stop, reason, new_given} ->
         {:stop, reason, State.set(state, new_given)}
     end
   end
-
-  defp complete(meta, %{queue: queue, exchange: exchange}),
-    do: meta |> Map.put(:exchange, exchange) |> Map.put(:queue, queue)
 end

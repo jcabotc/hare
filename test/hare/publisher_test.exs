@@ -15,7 +15,7 @@ defmodule Hare.PublisherTest do
     def publish(client, payload, routing_key, opts),
       do: Publisher.publish(client, payload, routing_key, opts)
 
-    def handle_publication(payload, routing_key, opts, pid) do
+    def before_publication(payload, routing_key, opts, pid) do
       case Keyword.fetch(opts, :hook) do
         {:ok, "modify_publication"} -> {:ok, "ASDF - #{payload}", routing_key, [bar: "baz"], pid}
         {:ok, "ignore"}             -> {:ignore, pid}
@@ -51,31 +51,31 @@ defmodule Hare.PublisherTest do
                          type: :fanout,
                          opts: [durable: true]]]
 
-    {:ok, rpc_client} = TestPublisher.start_link(conn, config, self())
+    {:ok, publisher} = TestPublisher.start_link(conn, config, self())
 
-    send(rpc_client, :some_message)
+    send(publisher, :some_message)
     assert_receive {:info, :some_message}
 
     payload     = "some data"
     routing_key = "the key"
 
-    Process.unlink(rpc_client)
-    assert :ok == TestPublisher.publish(rpc_client, payload, routing_key, [])
-    assert :ok == TestPublisher.publish(rpc_client, payload, routing_key, hook: "modify_publication")
-    assert :ok == TestPublisher.publish(rpc_client, payload, routing_key, hook: "ignore")
-    assert :ok == TestPublisher.publish(rpc_client, payload, routing_key, hook: "stop")
+    Process.unlink(publisher)
+    assert :ok == TestPublisher.publish(publisher, payload, routing_key, [])
+    assert :ok == TestPublisher.publish(publisher, payload, routing_key, hook: "modify_publication")
+    assert :ok == TestPublisher.publish(publisher, payload, routing_key, hook: "ignore")
+    assert :ok == TestPublisher.publish(publisher, payload, routing_key, hook: "stop")
 
     Process.sleep(20)
 
     assert [{:open_channel,
               [_given_conn],
               {:ok, given_chan_1}},
-            {:declare_exchange,
-              [given_chan_1, "foo", :fanout, [durable: true]],
-              :ok},
             {:monitor_channel,
               [given_chan_1],
               _ref},
+            {:declare_exchange,
+              [given_chan_1, "foo", :fanout, [durable: true]],
+              :ok},
             {:publish,
               [given_chan_1, "foo", ^payload, ^routing_key, []],
               :ok},
