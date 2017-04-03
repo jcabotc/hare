@@ -7,7 +7,7 @@ defmodule Hare.Actor.State do
              :mod, :given]
 
   def new(conn, mod, given)
-  when is_pid(conn) and is_atom(mod) do
+  when is_atom(mod) do
     %State{conn: conn, mod: mod, given: given}
   end
 
