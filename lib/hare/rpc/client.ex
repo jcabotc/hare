@@ -55,8 +55,9 @@ defmodule Hare.RPC.Client do
   Check it for more detailed information.
   """
 
+  @type request     :: term
   @type payload     :: Hare.Adapter.payload
-  @type response    :: payload
+  @type response    :: term
   @type routing_key :: Hare.Adapter.routing_key
   @type opts        :: Hare.Adapter.opts
   @type from        :: GenServer.from
@@ -131,7 +132,7 @@ defmodule Hare.RPC.Client do
   main loop and call `terminate(reason, state)` before the process exists with
   reason `reason`.
   """
-  @callback before_request(payload, routing_key, opts :: term, from, state) ::
+  @callback before_request(request, routing_key, opts :: term, from, state) ::
               {:ok, state} |
               {:ok, payload, routing_key, opts :: term, state} |
               {:reply, response, state} |
@@ -297,7 +298,7 @@ defmodule Hare.RPC.Client do
   A timeout bound to the same rules as the `GenServer` timeout may be
   specified (5 seconds by default)
   """
-  @spec request(GenServer.server, payload, routing_key, opts, timeout) ::
+  @spec request(GenServer.server, request, routing_key, opts, timeout) ::
           {:ok, response :: binary} |
           {:error, reason :: term}
   def request(client, payload, routing_key \\ "", opts \\ [], timeout \\ 5000),
