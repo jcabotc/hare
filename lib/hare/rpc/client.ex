@@ -299,7 +299,7 @@ defmodule Hare.RPC.Client do
   specified (5 seconds by default)
   """
   @spec request(GenServer.server, request, routing_key, opts, timeout) ::
-          {:ok, response :: binary} |
+          {:ok, response} |
           {:error, reason :: term}
   def request(client, payload, routing_key \\ "", opts \\ [], timeout \\ 5000),
     do: Hare.Actor.call(client, {:"$hare_request", payload, routing_key, opts}, timeout)
