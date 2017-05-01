@@ -17,7 +17,7 @@ defmodule Hare.Mixfile do
   end
 
   defp deps do
-    [{:amqp, "~> 0.1.4", hex: :amqp19, optional: true},
+    [{:amqp, "~> 0.2.0", optional: true},
      {:connection, "~> 1.0"},
      {:ex_doc, ">= 0.0.0", only: :dev}]
   end
