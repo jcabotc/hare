@@ -54,6 +54,7 @@ defmodule Hare.Publisher do
   Check it for more detailed information.
   """
 
+  @type message     :: term
   @type payload     :: Hare.Adapter.payload
   @type routing_key :: Hare.Adapter.routing_key
   @type opts        :: Hare.Adapter.opts
@@ -103,7 +104,7 @@ defmodule Hare.Publisher do
   main loop and call `terminate(reason, state)` before the process exists with
   reason `reason`.
   """
-  @callback before_publication(payload, routing_key, opts :: term, state) ::
+  @callback before_publication(message, routing_key, opts :: term, state) ::
               {:ok, state} |
               {:ok, payload, routing_key, opts :: term, state} |
               {:ignore, state} |
@@ -135,7 +136,7 @@ defmodule Hare.Publisher do
   main loop and call `terminate(reason, state)` before the process exists with
   reason `reason`.
   """
-  @callback handle_info(message :: term, state) ::
+  @callback handle_info(message, state) ::
               {:noreply, state} |
               {:stop, reason :: term, state}
 
@@ -225,7 +226,7 @@ defmodule Hare.Publisher do
   @doc """
   Publishes a message to an exchange through the `Hare.Publisher` process.
   """
-  @spec publish(GenServer.server, payload, routing_key, opts) :: :ok
+  @spec publish(GenServer.server, payload :: term, routing_key, opts) :: :ok
   def publish(client, payload, routing_key \\ "", opts \\ []),
     do: Hare.Actor.cast(client, {:"$hare_publication", payload, routing_key, opts})
 
