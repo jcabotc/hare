@@ -267,7 +267,8 @@ defmodule Hare.RPC.Client do
 
   @context Hare.Context
 
-  @type config :: [exchange: Hare.Context.Action.DeclareExchange.config]
+  @type config :: [exchange: Hare.Context.Action.DeclareExchange.config,
+                   timeout: timeout]
 
   @doc """
   Starts a `Hare.RPC.Client` process linked to the current process.
