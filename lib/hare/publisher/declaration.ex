@@ -16,13 +16,16 @@ defmodule Hare.Publisher.Declaration do
   end
 
   defp steps(config) do
-    with {:ok, exchange_config} <- Keyword.fetch(config, :exchange),
-         true                   <- Keyword.keyword?(exchange_config) do
+    with exchange_config <- Keyword.get(config, :exchange, []),
+         true            <- Keyword.keyword?(exchange_config) do
       {:ok, build_steps(exchange_config)}
     else
-      :error -> {:error, {:not_present, :exchange}}
       false  -> {:error, {:not_keyword_list, :exchange}}
     end
+  end
+
+  defp build_steps([]) do
+    [default_exchange: [{:export_as, :exchange}]]
   end
 
   defp build_steps(exchange_config) do

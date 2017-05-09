@@ -49,9 +49,10 @@ defmodule Hare.Publisher do
   Every time a channel is open the context is set up, meaning that the exchange
   is declared through the new channel based on the given configuration.
 
-  The configuration must be a `Keyword.t` that contains a single key: `:exchange`
+  The configuration must be a `Keyword.t` that may contain a single key: `:exchange`
   whose value is the configuration for the `Hare.Context.Action.DeclareExchange`.
-  Check it for more detailed information.
+  Check it for more detailed information. If the `:exchange` key is omited, the
+  default exchange will be used.
   """
 
   @type message     :: term
@@ -193,7 +194,8 @@ defmodule Hare.Publisher do
 
   @context Hare.Context
 
-  @type config :: [exchange: Hare.Context.Action.DeclareExchange.config]
+  @type config        :: [config_option]
+  @type config_option :: {:exchange, Hare.Context.Action.DeclareExchange.config}
 
   @doc """
   Starts a `Hare.Publisher` process linked to the current process.

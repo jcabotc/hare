@@ -44,6 +44,31 @@ defmodule Hare.PublisherTest do
     {history, conn}
   end
 
+  test "without specified exchange" do
+    {history, conn} = build_conn()
+
+    config = []
+
+    {:ok, publisher} = TestPublisher.start_link(conn, config, self())
+
+    payload     = "some data"
+    routing_key = "the key"
+    assert :ok == TestPublisher.publish(publisher, payload, routing_key, [])
+
+    Process.sleep(20)
+
+    assert [{:open_channel,
+              [_given_conn],
+              {:ok, given_chan_1}},
+            {:monitor_channel,
+              [given_chan_1],
+              _ref},
+            {:publish,
+              [given_chan_1, "", ^payload, ^routing_key, []],
+              :ok}
+           ] = Adapter.Backdoor.last_events(history, 3)
+  end
+
   test "publication" do
     {history, conn} = build_conn()
 
