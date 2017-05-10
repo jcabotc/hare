@@ -267,7 +267,8 @@ defmodule Hare.RPC.Client do
 
   @context Hare.Context
 
-  @type config :: [exchange: Hare.Context.Action.DeclareExchange.config]
+  @type config :: [exchange: Hare.Context.Action.DeclareExchange.config,
+                   timeout: timeout]
 
   @doc """
   Starts a `Hare.RPC.Client` process linked to the current process.
@@ -299,7 +300,7 @@ defmodule Hare.RPC.Client do
   specified (5 seconds by default)
   """
   @spec request(GenServer.server, request, routing_key, opts, timeout) ::
-          {:ok, response :: binary} |
+          {:ok, response} |
           {:error, reason :: term}
   def request(client, payload, routing_key \\ "", opts \\ [], timeout \\ 5000),
     do: Hare.Actor.call(client, {:"$hare_request", payload, routing_key, opts}, timeout)
@@ -358,6 +359,7 @@ defmodule Hare.RPC.Client do
 
       {:ok, new_payload, new_routing_key, new_opts, new_given} ->
         correlation_id = perform(new_payload, new_routing_key, new_opts, state)
+        set_request_timeout(correlation_id, state)
         {:noreply, State.set(state, new_given, correlation_id, from)}
 
       {:reply, response, new_given} ->

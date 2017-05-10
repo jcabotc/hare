@@ -49,11 +49,13 @@ defmodule Hare.Publisher do
   Every time a channel is open the context is set up, meaning that the exchange
   is declared through the new channel based on the given configuration.
 
-  The configuration must be a `Keyword.t` that contains a single key: `:exchange`
+  The configuration must be a `Keyword.t` that may contain a single key: `:exchange`
   whose value is the configuration for the `Hare.Context.Action.DeclareExchange`.
-  Check it for more detailed information.
+  Check it for more detailed information. If the `:exchange` key is omited, the
+  default exchange will be used.
   """
 
+  @type message     :: term
   @type payload     :: Hare.Adapter.payload
   @type routing_key :: Hare.Adapter.routing_key
   @type opts        :: Hare.Adapter.opts
@@ -103,7 +105,7 @@ defmodule Hare.Publisher do
   main loop and call `terminate(reason, state)` before the process exists with
   reason `reason`.
   """
-  @callback before_publication(payload, routing_key, opts :: term, state) ::
+  @callback before_publication(message, routing_key, opts :: term, state) ::
               {:ok, state} |
               {:ok, payload, routing_key, opts :: term, state} |
               {:ignore, state} |
@@ -135,7 +137,7 @@ defmodule Hare.Publisher do
   main loop and call `terminate(reason, state)` before the process exists with
   reason `reason`.
   """
-  @callback handle_info(message :: term, state) ::
+  @callback handle_info(message, state) ::
               {:noreply, state} |
               {:stop, reason :: term, state}
 
@@ -192,7 +194,8 @@ defmodule Hare.Publisher do
 
   @context Hare.Context
 
-  @type config :: [exchange: Hare.Context.Action.DeclareExchange.config]
+  @type config        :: [config_option]
+  @type config_option :: {:exchange, Hare.Context.Action.DeclareExchange.config}
 
   @doc """
   Starts a `Hare.Publisher` process linked to the current process.
@@ -225,7 +228,7 @@ defmodule Hare.Publisher do
   @doc """
   Publishes a message to an exchange through the `Hare.Publisher` process.
   """
-  @spec publish(GenServer.server, payload, routing_key, opts) :: :ok
+  @spec publish(GenServer.server, payload :: term, routing_key, opts) :: :ok
   def publish(client, payload, routing_key \\ "", opts \\ []),
     do: Hare.Actor.cast(client, {:"$hare_publication", payload, routing_key, opts})
 
