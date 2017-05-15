@@ -109,6 +109,10 @@ if Code.ensure_loaded?(AMQP) do
       Basic.consume(chan, queue, pid, opts)
     end
 
+    def recover(%Channel{} = chan, opts) do
+      Basic.recover(chan, opts)
+    end
+
     def handle({:basic_consume_ok, meta}),
       do: {:consume_ok, meta}
     def handle({:basic_deliver, payload, meta}),

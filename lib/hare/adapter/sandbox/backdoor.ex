@@ -201,7 +201,7 @@ defmodule Hare.Adapter.Sandbox.Backdoor do
   Provokes a connection or a channel process to stop with the given reason,
   therefore triggering all monitors and links with that process.
   """
-  @spec unlink(Conn.t | Chan.t) :: true
+  @spec crash(Conn.t | Chan.t, reason :: term) :: :ok
   def crash(resource, reason \\ :simulated_crash)
 
   def crash(%Conn{} = conn, reason),

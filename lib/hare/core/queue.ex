@@ -72,8 +72,8 @@ defmodule Hare.Core.Queue do
   # => %Queue{name: "nas=eq3as.ndf?ea", chan: chan}
   ```
   """
-  @spec declare(chan) :: {:ok, info :: term, t} |
-                         {:error, reason :: term}
+  @spec declare(chan, name | opts) :: {:ok, info :: term, t} |
+                                      {:error, reason :: term}
   def declare(chan, name) when is_binary(name),
     do: declare(chan, name, [])
   def declare(%Chan{} = chan, opts) do
@@ -136,7 +136,7 @@ defmodule Hare.Core.Queue do
   the exchange with `Exchange.declare/4` and use the resulting exchange as
   `unbind/3` second argument.
   """
-  @spec bind(t, Exchange.t | binary, opts) :: :ok
+  @spec unbind(t, Exchange.t | binary, opts) :: :ok
   def unbind(queue, exchange_or_name, opts \\ [])
   def unbind(%Queue{chan: chan} = queue, exchange_name, opts)
   when is_binary(exchange_name) do
@@ -193,8 +193,8 @@ defmodule Hare.Core.Queue do
   Otherwise the second argument is interpreted as options. It delegates to
   `consume/3` with the caller's pid and the given options.
   """
-  @spec consume(t, pid, opts) :: {:ok, t} |
-                                 {:error, :already_consuming}
+  @spec consume(t, pid | opts) :: {:ok, t} |
+                                  {:error, :already_consuming}
   def consume(queue, pid) when is_pid(pid), do: consume(queue, pid, [])
   def consume(queue, opts),                 do: consume(queue, self(), opts)
 
@@ -286,6 +286,16 @@ defmodule Hare.Core.Queue do
     %{given: given, adapter: adapter} = chan
 
     adapter.delete_queue(given, name, opts)
+  end
+
+  @doc """
+  Redeliver all unacknowledged messages from a specified queue.
+
+  It delegates the given options to the underlying adapter. The format
+  of these options depends on the adapter.
+  """
+  def recover(%Queue{chan: %{given: given, adapter: adapter}}, opts \\ []) do
+    adapter.recover(given, opts)
   end
 
   defp do_consume(%{given: given, adapter: adapter}, name, pid, opts),

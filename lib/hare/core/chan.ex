@@ -20,7 +20,9 @@ defmodule Hare.Core.Chan do
   If the connection is not established, it blocks until it is established.
   A timeout in ms may be specified for this operation (5 seconds by default).
   """
-  @spec open(conn :: pid, timeout) :: t
+  @spec open(conn :: GenServer.server, timeout) ::
+          {:ok, t} |
+          {:error, reason :: term}
   def open(conn, timeout \\ 5000) do
     Hare.Core.Conn.open_channel(conn, timeout)
   end

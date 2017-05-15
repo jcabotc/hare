@@ -43,8 +43,8 @@ defmodule Hare.Core.Conn.State.Bridge do
               config:         adapter_config,
               backoff:        backoff,
               next_intervals: backoff,
-              given:          given,
-              ref:            reference,
+              given:          given | nil,
+              ref:            reference | nil,
               status:         status}
 
   defstruct [:adapter, :config,

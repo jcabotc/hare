@@ -133,6 +133,29 @@ defmodule Hare.Consumer do
               {:stop, reason :: term, state}
 
   @doc """
+  Called when the process receives a call message sent by `call/3`. This
+  callback has the same arguments as the `GenServer` equivalent and the
+  `:reply`, `:noreply` and `:stop` return tuples behave the same.
+  """
+  @callback handle_call(request :: term, GenServer.from, state) ::
+    {:reply, reply :: term, state} |
+    {:reply, reply :: term, state, timeout | :hibernate} |
+    {:noreply, state} |
+    {:noreply, state, timeout | :hibernate} |
+    {:stop, reason :: term, state} |
+    {:stop, reason :: term, reply :: term, state}
+
+  @doc """
+  Called when the process receives a cast message sent by `cast/3`. This
+  callback has the same arguments as the `GenServer` equivalent and the
+  `:noreply` and `:stop` return tuples behave the same.
+  """
+  @callback handle_cast(request :: term, state) ::
+    {:noreply, state} |
+    {:noreply, state, timeout | :hibernate} |
+    {:stop, reason :: term, state}
+
+  @doc """
   Called when the process receives a message.
 
   Returning `{:noreply, state}` will causes the process to enter the main loop
@@ -243,6 +266,16 @@ defmodule Hare.Consumer do
   @spec reject(meta, opts) :: :ok
   def reject(%{queue: queue} = meta, opts \\ []),
     do: Queue.reject(queue, meta, opts)
+
+  @doc """
+  Redeliver messages that weren't acknowledged by a specified consumer.
+
+  Options are dependent on an underlying adapter. For RabbitMQ, `{:requeue, true}`
+  option must be specified.
+  """
+  @spec recover(meta, opts) :: term
+  def recover(%{queue: queue} = _meta, opts \\ []),
+    do: Queue.recover(queue, opts)
 
   defdelegate call(server, message),          to: Hare.Actor
   defdelegate call(server, message, timeout), to: Hare.Actor

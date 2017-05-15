@@ -122,6 +122,10 @@ defmodule Hare.Adapter.Sandbox do
     register(chan, {:consume, [chan, queue, pid, opts], {:ok, tag}})
   end
 
+  def recover(chan, opts) do
+    register(chan, {:recover, [chan, opts], :ok})
+  end
+
   def handle({:consume_ok, _meta} = message),
     do: message
   def handle({:deliver, _payload, _meta} = message),
