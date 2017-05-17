@@ -202,7 +202,8 @@ defmodule Hare.Consumer do
 
   @type config :: [queue:    Hare.Context.Action.DeclareQueue.config,
                    exchange: Hare.Context.Action.DeclareExchange.config,
-                   bind:     Keyword.t]
+                   bind:     Keyword.t,
+                   qos:      Keyword.t]
 
   @type opts :: Hare.Adapter.opts
 

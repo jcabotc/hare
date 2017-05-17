@@ -75,7 +75,8 @@ defmodule Hare.Context.Action do
            declare_server_named_queue: Action.DeclareServerNamedQueue,
            server_named_queue:         Action.DeclareServerNamedQueue,
            bind:                       Action.Bind,
-           unbind:                     Action.Unbind}
+           unbind:                     Action.Unbind,
+           qos:                        Action.Qos}
 
   @doc false
   def validate(name_or_module, config, known \\ @known) do
