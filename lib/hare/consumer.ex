@@ -351,7 +351,7 @@ defmodule Hare.Consumer do
         handle_mod_message(payload, meta, state)
 
       {:cancel_ok, _meta} ->
-        {:stop, :cancelled, state}
+        {:stop, {:shutdown, :cancelled}, state}
 
       :unknown ->
         handle_async(message, :handle_info, state)
