@@ -25,7 +25,6 @@ defmodule Hare.RPC.Client.Declaration do
          true            <- Keyword.keyword?(exchange_config) do
       {:ok, build_steps(exchange_config)}
     else
-      :error -> {:error, {:not_present, :exchange}}
       false  -> {:error, {:not_keyword_list, :exchange}}
     end
   end

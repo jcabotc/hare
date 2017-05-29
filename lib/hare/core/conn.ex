@@ -49,8 +49,8 @@ defmodule Hare.Core.Conn do
 
   A timeout can be given to `GenServer.call/3`.
   """
-  @spec open_channel(conn :: pid, timeout) :: {:ok, Hare.Core.Chan.t} |
-                                              {:error, reason :: term}
+  @spec open_channel(conn :: GenServer.server, timeout) :: {:ok, Hare.Core.Chan.t} |
+                                                           {:error, reason :: term}
   def open_channel(conn, timeout \\ 5000),
     do: Connection.call(conn, :open_channel, timeout)
 

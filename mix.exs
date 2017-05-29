@@ -9,7 +9,11 @@ defmodule Hare.Mixfile do
      start_permanent: Mix.env == :prod,
      description: "Some abstractions to interact with a AMQP broker",
      package: package(),
-     deps: deps()]
+     deps: deps(),
+     dialyzer: [
+       flags: [:error_handling],
+       remove_defaults: [:unknown]]
+    ]
   end
 
   def application do
@@ -19,7 +23,8 @@ defmodule Hare.Mixfile do
   defp deps do
     [{:amqp, "~> 0.2.0", optional: true},
      {:connection, "~> 1.0"},
-     {:ex_doc, ">= 0.0.0", only: :dev}]
+     {:ex_doc, ">= 0.0.0", only: :dev},
+     {:dialyxir, "~> 0.5", only: :dev, runtime: false}]
   end
 
   defp package do
