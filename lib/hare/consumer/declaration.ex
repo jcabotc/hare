@@ -23,8 +23,9 @@ defmodule Hare.Consumer.Declaration do
     with {:ok, exchange_config} <- extract(config, :exchange),
          {:ok, queue_config}    <- extract(config, :queue) do
       binds_opts = get_binds(config)
+      qos_opts = Keyword.get(config, :qos)
 
-      {:ok, build_steps(exchange_config, queue_config, binds_opts)}
+      {:ok, build_steps(exchange_config, queue_config, binds_opts, qos_opts)}
     end
   end
 
@@ -43,7 +44,7 @@ defmodule Hare.Consumer.Declaration do
       do: [[]]
   end
 
-  defp build_steps(exchange_config, queue_config, binds_opts) do
+  defp build_steps(exchange_config, queue_config, binds_opts, qos_opts) do
     resources = [declare_exchange: [{:export_as, :exchange} | exchange_config],
                  declare_queue:    [{:export_as, :queue}    | queue_config]]
 
@@ -51,7 +52,9 @@ defmodule Hare.Consumer.Declaration do
       {:bind, [{:opts, bind_opts} | @bind_exported_resources]}
     end
 
-    resources ++ binds
+    qos = if qos_opts, do: [qos: qos_opts], else: []
+
+    resources ++ binds ++ qos
   end
 
   def run(%Declaration{steps: steps, context: context}, chan) do
