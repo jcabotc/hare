@@ -94,6 +94,7 @@ defmodule Hare.Actor do
   defdelegate reply(from, message),          to: Connection
 
   def init({conn, mod, initial}) do
+    Process.flag(:trap_exit, true)
     case mod.init(initial) do
       {:ok, given} ->
         {:connect, :init, State.new(conn, mod, given)}
