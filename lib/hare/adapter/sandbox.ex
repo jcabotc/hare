@@ -126,11 +126,21 @@ defmodule Hare.Adapter.Sandbox do
     register(chan, {:recover, [chan, opts], :ok})
   end
 
+  def register_return_handler(chan, pid) do
+    register(chan, {:register_return_handler, [chan, pid], :ok})
+  end
+
+  def unregister_return_handler(chan) do
+    register(chan, {:unregister_return_handler, [chan], :ok})
+  end
+
   def handle({:consume_ok, _meta} = message),
     do: message
   def handle({:deliver, _payload, _meta} = message),
     do: message
   def handle({:cancel_ok, _meta} = message),
+    do: message
+  def handle({:return, _payload, _meta} = message),
     do: message
   def handle(_message),
     do: :unknown

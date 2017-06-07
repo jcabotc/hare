@@ -80,4 +80,19 @@ defmodule Hare.Core.Chan do
   @spec close(t) :: :ok
   def close(%Chan{given: given, adapter: adapter}),
     do: adapter.close_channel(given)
+
+  @doc """
+  Register a handler to deal with returned messages.
+  """
+  @spec register_return_handler(t) :: :ok
+  def register_return_handler(%Chan{given: given, adapter: adapter}, pid \\ self()),
+    do: adapter.register_return_handler(given, pid)
+
+  @doc """
+  Remove the return handler, if it exists. Does nothing if there is no
+  such handler.
+  """
+  @spec unregister_return_handler(t) :: :ok
+  def unregister_return_handler(%Chan{given: given, adapter: adapter}),
+    do: adapter.unregister_return_handler(given)
 end

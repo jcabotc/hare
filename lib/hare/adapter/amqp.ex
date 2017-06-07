@@ -113,12 +113,22 @@ if Code.ensure_loaded?(AMQP) do
       Basic.recover(chan, opts)
     end
 
+    def register_return_handler(%Channel{} = chan, pid) do
+      Basic.return(chan, pid)
+    end
+
+    def unregister_return_handler(%Channel{} = chan) do
+      Basic.cancel_return(chan)
+    end
+
     def handle({:basic_consume_ok, meta}),
       do: {:consume_ok, meta}
     def handle({:basic_deliver, payload, meta}),
       do: {:deliver, payload, meta}
     def handle({:basic_cancel_ok, meta}),
       do: {:cancel_ok, meta}
+    def handle({:basic_return, payload, meta}),
+      do: {:return, payload, meta}
     def handle(_message),
       do: :unknown
 

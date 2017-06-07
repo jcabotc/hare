@@ -167,6 +167,33 @@ defmodule Hare.RPC.Client do
               {:stop, reason :: term, state}
 
   @doc """
+  Called when a message has been returned. It may happen when a request is sent
+  with option `mandatory: true` and broken cannot deliver the message to a queue.
+
+  It receives as argument the  caller reference and the internal state.
+
+  Returning `{:reply, reply, state}` will cause the given reply to be
+  delivered to the caller instead of the original response, and enter
+  the main loop with the given state.
+
+  Returning `{:noreply, state}` will enter the main loop with the given state
+  without responding to the caller (that will eventually timeout or keep blocked
+  forever if the timeout was set to `:infinity`).
+
+  Returning `{:stop, reason, reply, state}` will deliver the given reply to
+  the caller instead of the original response and call `terminate(reason, state)`
+  before the process exists with reason `reason`.
+
+  Returning `{:stop, reason, state}` not reply to the caller and call
+  `terminate(reason, state)` before the process exists with reason `reason`.
+  """
+  @callback on_return(payload, state) ::
+              {:reply, response, state} |
+              {:noreply, state} |
+              {:stop, reason :: term, response, state} |
+              {:stop, reason :: term, state}
+
+  @doc """
   Called when a request has timed out.
 
   It receives as argument the message payload, the routing key, the options
@@ -239,6 +266,10 @@ defmodule Hare.RPC.Client do
         do: {:reply, {:ok, response}, state}
 
       @doc false
+      def on_return(_from, state),
+        do: {:reply, {:error, :returned}, state}
+
+      @doc false
       def handle_call(message, _from, state),
         do: {:stop, {:bad_call, message}, state}
 
@@ -256,18 +287,19 @@ defmodule Hare.RPC.Client do
 
       defoverridable [init: 1, terminate: 2, handle_ready: 2,
                       handle_call: 3, handle_cast: 2, handle_info: 2,
-                      before_request: 5, on_timeout: 2, on_response: 3]
+                      before_request: 5, on_timeout: 2, on_return: 2, on_response: 3]
     end
   end
 
   use Hare.Actor
 
   alias __MODULE__.{Declaration, Runtime, State}
-  alias Hare.Core.{Queue, Exchange}
+  alias Hare.Core.{Queue, Exchange, Chan}
 
   @context Hare.Context
 
   @type config :: [exchange: Hare.Context.Action.DeclareExchange.config,
+                   context: module,
                    timeout: timeout]
 
   @doc """
@@ -342,7 +374,8 @@ defmodule Hare.RPC.Client do
   @doc false
   def declare(chan, %{declaration: declaration} = state) do
     with {:ok, resp_queue, req_exchange} <- Declaration.run(declaration, chan),
-         {:ok, new_resp_queue}           <- Queue.consume(resp_queue, no_ack: true) do
+         {:ok, new_resp_queue}           <- Queue.consume(resp_queue, no_ack: true),
+         :ok                             <- Chan.register_return_handler(chan) do
       {:ok, State.declared(state, new_resp_queue, req_exchange)}
     else
       {:error, reason} -> {:stop, reason, state}
@@ -402,7 +435,7 @@ defmodule Hare.RPC.Client do
   def handle_info({:request_timeout, correlation_id}, state) do
     case State.pop_waiting(state, correlation_id) do
       {:ok, from, new_state} ->
-        handle_mod_on_timeout(from, new_state)
+        handle_sync(:on_timeout, from, new_state)
 
       :unknown ->
         {:noreply, state}
@@ -419,6 +452,9 @@ defmodule Hare.RPC.Client do
       {:cancel_ok, _meta} ->
         {:stop, :cancelled, state}
 
+      {:return, payload, meta} ->
+        handle_return(payload, meta, state)
+
       :unknown ->
         handle_async(message, :handle_info, state)
     end
@@ -429,24 +465,6 @@ defmodule Hare.RPC.Client do
   @doc false
   def terminate(reason, %{mod: mod, given: given}),
     do: mod.terminate(reason, given)
-
-  defp handle_mod_on_timeout(from, %{mod: mod, given: given} = state) do
-    case mod.on_timeout(from, given) do
-      {:reply, response, new_given} ->
-        GenServer.reply(from, response)
-        {:noreply, State.set(state, new_given)}
-
-      {:noreply, new_given} ->
-        {:noreply, State.set(state, new_given)}
-
-      {:stop, reason, response, new_given} ->
-        GenServer.reply(from, response)
-        {:stop, reason, State.set(state, new_given)}
-
-      {:stop, reason, new_given} ->
-        {:stop, reason, State.set(state, new_given)}
-    end
-  end
 
   defp handle_mod_ready(meta, %{mod: mod, given: given} = state) do
     case mod.handle_ready(complete(meta, state), given) do
@@ -461,28 +479,20 @@ defmodule Hare.RPC.Client do
   defp handle_response(payload, %{correlation_id: correlation_id}, state) do
     case State.pop_waiting(state, correlation_id) do
       {:ok, from, new_state} ->
-        handle_mod_on_response(payload, from, new_state)
+        handle_sync(:on_response, [payload], from, new_state)
 
       :unknown ->
         {:noreply, state}
     end
   end
 
-  defp handle_mod_on_response(payload, from, %{mod: mod, given: given} = state) do
-    case mod.on_response(payload, from, given) do
-      {:reply, response, new_given} ->
-        GenServer.reply(from, response)
-        {:noreply, State.set(state, new_given)}
+  defp handle_return(_payload, %{correlation_id: correlation_id}, state) do
+    case State.pop_waiting(state, correlation_id) do
+      {:ok, from, new_state} ->
+        handle_sync(:on_return, from, new_state)
 
-      {:noreply, new_given} ->
-        {:noreply, State.set(state, new_given)}
-
-      {:stop, reason, response, new_given} ->
-        GenServer.reply(from, response)
-        {:stop, reason, State.set(state, new_given)}
-
-      {:stop, reason, new_given} ->
-        {:stop, reason, State.set(state, new_given)}
+      :unknown ->
+        {:noreply, state}
     end
   end
 
@@ -519,6 +529,24 @@ defmodule Hare.RPC.Client do
 
       {:noreply, new_given, timeout} ->
         {:noreply, State.set(state, new_given), timeout}
+
+      {:stop, reason, new_given} ->
+        {:stop, reason, State.set(state, new_given)}
+    end
+  end
+
+  defp handle_sync(fun, args \\ [], from, %{mod: mod, given: given} = state) do
+    case apply(mod, fun, args ++ [from, given]) do
+      {:reply, response, new_given} ->
+        GenServer.reply(from, response)
+        {:noreply, State.set(state, new_given)}
+
+      {:noreply, new_given} ->
+        {:noreply, State.set(state, new_given)}
+
+      {:stop, reason, response, new_given} ->
+        GenServer.reply(from, response)
+        {:stop, reason, State.set(state, new_given)}
 
       {:stop, reason, new_given} ->
         {:stop, reason, State.set(state, new_given)}
