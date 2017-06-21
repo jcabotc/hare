@@ -245,6 +245,7 @@ defmodule Hare.Core.Queue do
   @spec handle(t, message :: term) :: {:consume_ok, meta} |
                                       {:deliver, payload, meta} |
                                       {:cancel_ok, meta} |
+                                      {:return, payload, meta} |
                                       :unknown
   def handle(%Queue{chan: %{adapter: adapter}}, message),
     do: adapter.handle(message)

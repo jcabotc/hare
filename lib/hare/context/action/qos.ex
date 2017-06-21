@@ -15,7 +15,6 @@ defmodule Hare.Context.Action.Qos do
 
   @behaviour Hare.Context.Action
 
-  alias Hare.Context.Action.Shared
   alias Hare.Core.Chan
 
   import Hare.Context.Action.Helper.Validations,
@@ -25,7 +24,7 @@ defmodule Hare.Context.Action.Qos do
     validate(config, :prefetch_count, :integer, required: true)
   end
 
-  def run(chan, config, exports) do
+  def run(chan, config, _exports) do
     Chan.qos(chan, prefetch_count: config[:prefetch_count])
   end
 end
