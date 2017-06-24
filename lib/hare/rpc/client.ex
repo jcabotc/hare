@@ -384,14 +384,17 @@ defmodule Hare.RPC.Client do
 
   @doc false
   def handle_call({:"$hare_request", payload, routing_key, opts}, from, %{mod: mod, given: given} = state) do
+    correlation_id = generate_correlation_id()
+    opts = Keyword.put(opts, :correlation_id, correlation_id)
+
     case mod.before_request(payload, routing_key, opts, from, given) do
       {:ok, new_given} ->
-        correlation_id = perform(payload, routing_key, opts, state)
+        perform(correlation_id, payload, routing_key, opts, state)
         set_request_timeout(correlation_id, state)
         {:noreply, State.set(state, new_given, correlation_id, from)}
 
       {:ok, new_payload, new_routing_key, new_opts, new_given} ->
-        correlation_id = perform(new_payload, new_routing_key, new_opts, state)
+        perform(correlation_id, new_payload, new_routing_key, new_opts, state)
         set_request_timeout(correlation_id, state)
         {:noreply, State.set(state, new_given, correlation_id, from)}
 
@@ -496,8 +499,7 @@ defmodule Hare.RPC.Client do
     end
   end
 
-  defp perform(payload, routing_key, opts, %{req_exchange: req_exchange, resp_queue: resp_queue}) do
-    correlation_id = generate_correlation_id()
+  defp perform(correlation_id, payload, routing_key, opts, %{req_exchange: req_exchange, resp_queue: resp_queue}) do
     new_opts = Keyword.merge(opts, reply_to:       resp_queue.name,
                                    correlation_id: correlation_id)
 

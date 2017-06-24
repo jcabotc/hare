@@ -22,10 +22,21 @@ defmodule Hare.RPC.ClientTest do
 
     def before_request(payload, routing_key, opts, _from, pid) do
       case Keyword.fetch(opts, :hook) do
-        {:ok, "modify_request"}      -> {:ok, "ASDF - #{payload}", routing_key, [bar: "baz"], pid}
-        {:ok, "reply: " <> response} -> {:reply, {:ok, response}, pid}
-        {:ok, "stop: " <> response}  -> {:stop, "a_reason", {:ok, response}, pid}
-        _otherwise                   -> {:ok, pid}
+        {:ok, "modify_request"} ->
+          {:ok, "ASDF - #{payload}", routing_key, [bar: "baz"], pid}
+
+        {:ok, "correlation_id"} ->
+          send(pid, {:correlation_id, opts[:correlation_id]})
+          {:ok, pid}
+
+        {:ok, "reply: " <> response} ->
+          {:reply, {:ok, response}, pid}
+
+        {:ok, "stop: " <> response} ->
+          {:stop, "a_reason", {:ok, response}, pid}
+
+        _otherwise ->
+          {:ok, pid}
       end
     end
 
@@ -96,10 +107,16 @@ defmodule Hare.RPC.ClientTest do
     request_4 = Task.async fn ->
       TestClient.request(rpc_client, payload, routing_key, [])
     end
+    request_5 = Task.async fn ->
+      TestClient.request(rpc_client, payload, routing_key, hook: "correlation_id")
+    end
+    assert_receive {:correlation_id, correlation_id_5}
+
     assert nil == Task.yield(request_1, 20)
     assert nil == Task.yield(request_2, 1)
     assert nil == Task.yield(request_3, 1)
     assert nil == Task.yield(request_4, 1)
+    assert nil == Task.yield(request_5, 1)
 
     assert {:ok, "hi!"} = TestClient.request(rpc_client, payload, routing_key, hook: "reply: hi!")
 
@@ -132,8 +149,11 @@ defmodule Hare.RPC.ClientTest do
               :ok},
             {:publish,
               [given_chan_1, "foo", ^payload, ^routing_key, opts_4],
+              :ok},
+            {:publish,
+              [given_chan_1, "foo", ^payload, ^routing_key, opts_5],
               :ok}
-           ] = Adapter.Backdoor.last_events(history, 10)
+           ] = Adapter.Backdoor.last_events(history, 11)
 
     assert resp_queue_name == Keyword.fetch!(opts_1, :reply_to)
     correlation_id_1 = Keyword.fetch!(opts_1, :correlation_id)
@@ -147,6 +167,9 @@ defmodule Hare.RPC.ClientTest do
 
     assert resp_queue_name == Keyword.fetch!(opts_4, :reply_to)
     correlation_id_4 = Keyword.fetch!(opts_4, :correlation_id)
+
+    assert resp_queue_name == Keyword.fetch!(opts_5, :reply_to)
+    assert correlation_id_5 == Keyword.fetch!(opts_5, :correlation_id)
 
     response_2 = "a_response"
     meta_2     = %{correlation_id: correlation_id_2}
@@ -170,6 +193,12 @@ defmodule Hare.RPC.ClientTest do
     send(rpc_client, {:return, payload, meta_4})
 
     assert {:ok, "no_route"} == Task.yield(request_4, 10)
+
+    response_5 = "a_response"
+    meta_5     = %{correlation_id: correlation_id_5}
+    send(rpc_client, {:deliver, response_5, meta_5})
+
+    assert {:ok, response_5} == Task.await(request_5)
   end
 
   test "timeout" do
