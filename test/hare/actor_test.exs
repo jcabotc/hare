@@ -10,8 +10,13 @@ defmodule Hare.ActorTest do
     defdelegate call(actor, message), to: Hare.Actor
     defdelegate cast(actor, message), to: Hare.Actor
 
-    def declare(chan, pid) do
-      send(pid, {:declare, chan})
+    def connected(chan, pid) do
+      send(pid, {:connected, chan})
+      {:ok, pid}
+    end
+
+    def disconnected(reason, pid) do
+      send(pid, {:disconnected, reason})
       {:ok, pid}
     end
 
@@ -53,10 +58,10 @@ defmodule Hare.ActorTest do
 
     {:ok, conn} = Hare.Conn.start_link(config)
 
-    # init and declare
+    # init and connect
     #
     {:ok, actor} = TestActor.start_link(conn, test_pid)
-    assert_receive {:declare, chan_1}
+    assert_receive {:connected, chan_1}
 
     # handle_call
     #
@@ -66,7 +71,8 @@ defmodule Hare.ActorTest do
     # on chan crash
     #
     Adapter.Backdoor.crash(chan_1.given, :normal)
-    assert_receive {:declare, chan_2}
+    assert_receive {:disconnected, :normal}
+    assert_receive {:connected, chan_2}
     assert chan_1 != chan_2
 
     # handle_info

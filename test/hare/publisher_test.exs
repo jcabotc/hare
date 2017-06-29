@@ -10,6 +10,11 @@ defmodule Hare.PublisherTest do
     def start_link(conn, config, pid),
       do: Publisher.start_link(__MODULE__, conn, config, pid)
 
+    def handle_connected(pid) do
+      send(pid, :connected)
+      {:noreply, pid}
+    end
+
     def publish(client, payload),
       do: Publisher.publish(client, payload)
     def publish(client, payload, routing_key, opts),
@@ -50,6 +55,7 @@ defmodule Hare.PublisherTest do
     config = []
 
     {:ok, publisher} = TestPublisher.start_link(conn, config, self())
+    assert_receive :connected
 
     payload     = "some data"
     routing_key = "the key"
@@ -77,6 +83,7 @@ defmodule Hare.PublisherTest do
                          opts: [durable: true]]]
 
     {:ok, publisher} = TestPublisher.start_link(conn, config, self())
+    assert_receive :connected
 
     send(publisher, :some_message)
     assert_receive {:info, :some_message}

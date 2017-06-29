@@ -140,6 +140,8 @@ defmodule Hare.Adapter.Sandbox do
     do: message
   def handle({:cancel_ok, _meta} = message),
     do: message
+  def handle({:cancel, _meta} = message),
+    do: message
   def handle({:return, _payload, _meta} = message),
     do: message
   def handle(_message),
