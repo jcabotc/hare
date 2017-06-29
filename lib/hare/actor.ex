@@ -4,10 +4,13 @@ defmodule Hare.Actor do
     :ignore |
     {:stop, reason :: term}
 
-  @callback declare(chan :: Hare.Core.Chan.t, state :: term) ::
+  @callback connected(chan :: Hare.Core.Chan.t, state :: term) ::
     {:ok, new_state} |
-    {:ok, new_state, timeout | :hibernate} |
-    {:stop, reason :: term} when new_state: term
+    {:stop, reason :: term, new_state} when new_state: term
+
+  @callback disconnected(reason :: term, state :: term) ::
+    {:ok, new_state} |
+    {:stop, reason :: term, new_state} when new_state: term
 
   @callback handle_call(request :: term, GenServer.from, state :: term) ::
     {:reply, reply, new_state} |
@@ -44,7 +47,12 @@ defmodule Hare.Actor do
       end
 
       @doc false
-      def declare(chan, state) do
+      def connected(chan, state) do
+        {:ok, state}
+      end
+
+      @doc false
+      def disconnected(_reason, state) do
         {:ok, state}
       end
 
@@ -73,7 +81,7 @@ defmodule Hare.Actor do
         {:ok, state}
       end
 
-      defoverridable [init: 1, declare: 2, terminate: 2,
+      defoverridable [init: 1, connected: 2, disconnected: 2, terminate: 2,
                       handle_call: 3, handle_cast: 2, handle_info: 2,
                       code_change: 3]
     end
@@ -93,6 +101,7 @@ defmodule Hare.Actor do
   defdelegate cast(actor, message),          to: Connection
   defdelegate reply(from, message),          to: Connection
 
+  @doc false
   def init({conn, mod, initial}) do
     case mod.init(initial) do
       {:ok, given} ->
@@ -106,33 +115,26 @@ defmodule Hare.Actor do
     end
   end
 
+  @doc false
+  def connect(:init, state) do
+    with {:ok, connected} <- State.open_channel(state),
+         {:noreply, new_state} <- handle_mod_connected(connected) do
+      {:ok, new_state}
+    else
+      {:error, reason, new_state} -> {:stop, reason, new_state}
+      other -> other
+    end
+  end
   def connect(_info, state) do
-    case State.up(state) do
-      {:ok, new_state} ->
-        declare(new_state)
-
-      {:error, reason} ->
-        {:stop, reason, state}
-    end
+    {:ok, State.request_channel(state)}
   end
 
-  defp declare(%{chan: chan, mod: mod, given: given} = state) do
-    case mod.declare(chan, given) do
-      {:ok, new_given} ->
-        {:ok, State.set(state, new_given)}
-
-      {:ok, new_given, timeout} ->
-        {:ok, State.set(state, new_given), timeout}
-
-      {:stop, reason, new_given} ->
-        {:stop, reason, State.set(state, new_given)}
-    end
-  end
-
+  @doc false
   def disconnect(_info, state) do
     {:stop, :normal, state}
   end
 
+  @doc false
   def handle_call(message, from, %{mod: mod, given: given} = state) do
     case mod.handle_call(message, from, given) do
       {:reply, reply, new_given} ->
@@ -155,6 +157,7 @@ defmodule Hare.Actor do
     end
   end
 
+  @doc false
   def handle_cast(message, %{mod: mod, given: given} = state) do
     case mod.handle_cast(message, given) do
       {:noreply, new_given} ->
@@ -168,8 +171,15 @@ defmodule Hare.Actor do
     end
   end
 
-  def handle_info({:DOWN, ref, _, _, _reason}, %{ref: ref} = state) do
-    {:connect, :down, State.crash(state)}
+  @doc false
+  def handle_info({:DOWN, ref, _, _, reason}, %{ref: ref} = state) do
+    handle_mod_disconnected(reason, State.crash(state))
+  end
+  def handle_info({ref, result}, %{wait_ref: ref} = state) do
+    case State.handle_open_channel(result, state) do
+      {:ok, new_state} -> handle_mod_connected(new_state)
+      {:error, reason, new_state} -> handle_mod_disconnected(reason, new_state)
+    end
   end
   def handle_info(message, %{mod: mod, given: given} = state) do
     case mod.handle_info(message, given) do
@@ -184,8 +194,29 @@ defmodule Hare.Actor do
     end
   end
 
+  @doc false
   def terminate(reason, %{mod: mod, given: given} = state) do
     mod.terminate(reason, given)
     State.down(state)
+  end
+
+  defp handle_mod_connected(%{mod: mod, chan: chan, given: given} = state) do
+    case mod.connected(chan, given) do
+      {:ok, new_given} ->
+        {:noreply, State.set(state, new_given)}
+
+      {:stop, reason, new_given} ->
+        {:stop, reason, State.set(state, new_given)}
+    end
+  end
+
+  defp handle_mod_disconnected(reason, %{mod: mod, given: given} = state) do
+    case mod.disconnected(reason, given) do
+      {:ok, new_given} ->
+        {:connect, :down, State.set(state, new_given)}
+
+      {:stop, reason, new_given} ->
+        {:stop, reason, State.set(state, new_given)}
+    end
   end
 end

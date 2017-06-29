@@ -14,8 +14,11 @@ defmodule Hare.Consumer.State do
            given:       given}
   end
 
-  def declared(%State{} = state, queue, exchange),
+  def connected(%State{} = state, queue, exchange),
     do: %{state | queue: queue, exchange: exchange}
+
+  def disconnected(%State{} = state),
+    do: %{state | queue: nil, exchange: nil}
 
   def set(%State{} = state, given),
     do: %{state | given: given}

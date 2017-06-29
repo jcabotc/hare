@@ -20,6 +20,11 @@ defmodule Hare.RPC.ClientTest do
       {:noreply, pid}
     end
 
+    def handle_connected(pid) do
+      send(pid, :connected)
+      {:noreply, pid}
+    end
+
     def before_request(payload, routing_key, opts, _from, pid) do
       case Keyword.fetch(opts, :hook) do
         {:ok, "modify_request"}      -> {:ok, "ASDF - #{payload}", routing_key, [bar: "baz"], pid}
@@ -69,6 +74,7 @@ defmodule Hare.RPC.ClientTest do
                          opts: [durable: true]]]
 
     {:ok, rpc_client} = TestClient.start_link(conn, config, self())
+    assert_receive :connected
 
     send(rpc_client, {:consume_ok, %{bar: "baz"}})
     assert_receive {:ready, %{bar:          "baz",
@@ -196,9 +202,36 @@ defmodule Hare.RPC.ClientTest do
     [{:publish,
        [given_chan, "foo", ^payload, "", _opts],
        :ok},
+     {:unregister_return_handler,
+       [given_chan],
+       :ok},
      {:close_channel,
        [given_chan],
        :ok}
-    ] = Adapter.Backdoor.last_events(history, 2)
+    ] = Adapter.Backdoor.last_events(history, 3)
+  end
+
+  test "disconnect during request" do
+    {:ok, conn} = Conn.start_link(config:  [],
+                                  adapter: Adapter,
+                                  backoff: [100])
+
+    config = [exchange: [name: "foo", type: :fanout]]
+
+    {:ok, rpc_client} = TestClient.start_link(conn, config, self())
+    assert_receive :connected
+
+    send(rpc_client, {:consume_ok, %{bar: "baz"}})
+
+    payload = "the request"
+    request = Task.async fn ->
+      TestClient.request(rpc_client, payload)
+    end
+
+    # crash connection
+    Adapter.Backdoor.crash(Hare.Conn.given_conn(conn), :normal)
+
+    assert {:error, :disconnected} = Task.await(request)
+    assert {:error, :not_connected} = TestClient.request(rpc_client, payload)
   end
 end

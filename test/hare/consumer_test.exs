@@ -10,6 +10,11 @@ defmodule Hare.ConsumerTest do
     def start_link(conn, config, pid),
       do: Consumer.start_link(__MODULE__, conn, config, pid)
 
+    def handle_connected(pid) do
+      send(pid, :connected)
+      {:noreply, pid}
+    end
+
     def handle_ready(meta, pid) do
       send(pid, {:ready, meta})
       {:noreply, pid}
@@ -58,6 +63,7 @@ defmodule Hare.ConsumerTest do
               bind: [routing_key: "qux"]]
 
     {:ok, consumer} = TestConsumer.start_link(conn, config, self())
+    assert_receive :connected
 
     send(consumer, {:consume_ok, %{bar: "baz"}})
     assert_receive {:ready, %{bar: "baz", queue: queue, exchange: exchange}}

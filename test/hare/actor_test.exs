@@ -10,8 +10,13 @@ defmodule Hare.ActorTest do
     defdelegate call(actor, message), to: Hare.Actor
     defdelegate cast(actor, message), to: Hare.Actor
 
-    def declare(chan, pid) do
-      send(pid, {:declare, chan})
+    def connected(chan, pid) do
+      send(pid, {:connected, chan})
+      {:ok, pid}
+    end
+
+    def disconnected(reason, pid) do
+      send(pid, {:disconnected, reason})
       {:ok, pid}
     end
 
@@ -53,10 +58,10 @@ defmodule Hare.ActorTest do
 
     {:ok, conn} = Hare.Conn.start_link(config)
 
-    # init and declare
+    # init and connect
     #
     {:ok, actor} = TestActor.start_link(conn, test_pid)
-    assert_receive {:declare, chan_1}
+    assert_receive {:connected, chan_1}
 
     # handle_call
     #
@@ -66,7 +71,8 @@ defmodule Hare.ActorTest do
     # on chan crash
     #
     Adapter.Backdoor.crash(chan_1.given, :normal)
-    assert_receive {:declare, chan_2}
+    assert_receive {:disconnected, :normal}
+    assert_receive {:connected, chan_2}
     assert chan_1 != chan_2
 
     # handle_info
@@ -85,5 +91,33 @@ defmodule Hare.ActorTest do
 
     assert_receive {:terminate, :a_reason}
     assert_receive {:DOWN, ^ref, _, _, :a_reason}
+  end
+
+  test "reconnecting" do
+    test_pid = self()
+
+    steps = [:ok, {:error, :econnrefused}, :ok]
+
+    {:ok, history} = Adapter.Backdoor.start_history()
+    {:ok, on_connect} = Adapter.Backdoor.on_connect(steps)
+
+    default_genserver_timeout = 5000
+
+    config = [adapter: Adapter,
+              config:  [history: history, on_connect: on_connect],
+              backoff: [default_genserver_timeout]] # simulate long reconnection
+
+    {:ok, conn} = Hare.Conn.start_link(config)
+
+    # init and connect
+    {:ok, _actor} = TestActor.start_link(conn, test_pid)
+    assert_receive {:connected, chan_1}
+
+    # crash connection
+    Adapter.Backdoor.crash(Hare.Conn.given_conn(conn), :normal)
+    assert_receive {:disconnected, :normal}
+    assert_receive {:connected, chan_2}, default_genserver_timeout * 2 + 100
+
+    assert chan_1 != chan_2
   end
 end

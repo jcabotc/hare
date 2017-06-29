@@ -127,6 +127,8 @@ if Code.ensure_loaded?(AMQP) do
       do: {:deliver, payload, meta}
     def handle({:basic_cancel_ok, meta}),
       do: {:cancel_ok, meta}
+    def handle({:basic_cancel, meta}),
+      do: {:cancel, meta}
     def handle({:basic_return, payload, meta}),
       do: {:return, payload, meta}
     def handle(_message),
