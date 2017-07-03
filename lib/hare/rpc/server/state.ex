@@ -14,8 +14,12 @@ defmodule Hare.RPC.Server.State do
            given:       given}
   end
 
-  def declared(%State{} = state, queue, exchange) do
+  def connected(%State{} = state, queue, exchange) do
     %{state | queue: queue, exchange: exchange}
+  end
+
+  def disconnected(%State{} = state) do
+    %{state | queue: nil, exchange: nil}
   end
 
   def set(%State{} = state, given) do

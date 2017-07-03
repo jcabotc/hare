@@ -128,12 +128,14 @@ defmodule Hare.Adapter do
     * `{:consume_ok, meta}` - `consume-ok` message sent by the AMQP server when a consumer is started
     * `{:deliver, payload, meta}` - an actual message from the queue being consumed
     * `{:cancel_ok, meta}` - `cancel-ok` message sent by the AMQP server when a consumer is started
+    * `{:cancel, meta}` - `cancel` message sent by the AMQP server when a consumer has been unexpectedly closed
     * `:unknown` - any other message
   """
   @callback handle(message :: term) ::
               {:consume_ok, meta} |
               {:deliver, payload, meta} |
               {:cancel_ok, meta} |
+              {:cancel, meta} |
               :unknown
 
   @doc "Cancels the consumer with the given consumer_tag"

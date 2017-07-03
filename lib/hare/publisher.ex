@@ -86,6 +86,33 @@ defmodule Hare.Publisher do
               {:stop, reason :: term}
 
   @doc """
+  Called when the publisher process has successfully opened AMQP channel.
+
+  Returning `{:noreply, state}` will cause the process to enter the main loop
+  with the given state.
+
+  Returning `{:stop, reason, state}` will terminate the main loop and call
+  `terminate(reason, state)` before the process exits with reason `reason`.
+  """
+  @callback handle_connected(state) ::
+              {:noreply, state} |
+              {:stop, reason :: term, state}
+
+  @doc """
+  Called when the AMQP publisher has been disconnected from the AMQP broker.
+
+  Returning `{:noreply, state}` causes the process to enter the main loop with
+  the given state. The publisher will not be able to send any new messages until
+  connection to AMQP broker is established again.
+
+  Returning `{:stop, reason, state}` will terminate the main loop and call
+  `terminate(reason, state)` before the process exits with reason `reason`.
+  """
+  @callback handle_disconnected(reason :: term, state) ::
+              {:noreply, state} |
+              {:stop, reason :: term, state}
+
+  @doc """
   Called before a message will be published to the exchange.
 
   It receives as argument the message payload, the routing key, the options
@@ -102,7 +129,7 @@ defmodule Hare.Publisher do
   again with the given state.
 
   Returning `{:stop, reason, state}` will not send the message, terminate the
-  main loop and call `terminate(reason, state)` before the process exists with
+  main loop and call `terminate(reason, state)` before the process exits with
   reason `reason`.
   """
   @callback before_publication(message, routing_key, opts :: term, state) ::
@@ -120,11 +147,34 @@ defmodule Hare.Publisher do
   Returning `{:ok, state}` will enter the main loop with the given state.
 
   Returning `{:stop, reason, state}` will terminate the
-  main loop and call `terminate(reason, state)` before the process exists with
+  main loop and call `terminate(reason, state)` before the process exits with
   reason `reason`.
   """
   @callback after_publication(payload, routing_key, opts :: term, state) ::
               {:ok, state} |
+              {:stop, reason :: term, state}
+
+  @doc """
+  Called when the process receives a call message sent by `call/3`. This
+  callback has the same arguments as the `GenServer` equivalent and the
+  `:reply`, `:noreply` and `:stop` return tuples behave the same.
+  """
+  @callback handle_call(request :: term, GenServer.from, state) ::
+              {:reply, reply :: term, state} |
+              {:reply, reply :: term, state, timeout | :hibernate} |
+              {:noreply, state} |
+              {:noreply, state, timeout | :hibernate} |
+              {:stop, reason :: term, state} |
+              {:stop, reason :: term, reply :: term, state}
+
+  @doc """
+  Called when the process receives a cast message sent by `cast/3`. This
+  callback has the same arguments as the `GenServer` equivalent and the
+  `:noreply` and `:stop` return tuples behave the same.
+  """
+  @callback handle_cast(request :: term, state) ::
+              {:noreply, state} |
+              {:noreply, state, timeout | :hibernate} |
               {:stop, reason :: term, state}
 
   @doc """
@@ -134,7 +184,7 @@ defmodule Hare.Publisher do
   with the given state.
 
   Returning `{:stop, reason, state}` will not send the message, terminate the
-  main loop and call `terminate(reason, state)` before the process exists with
+  main loop and call `terminate(reason, state)` before the process exits with
   reason `reason`.
   """
   @callback handle_info(message, state) ::
@@ -156,6 +206,14 @@ defmodule Hare.Publisher do
       @doc false
       def init(initial),
         do: {:ok, initial}
+
+      @doc false
+      def handle_connected(state),
+        do: {:noreply, state}
+
+      @doc false
+      def handle_disconnected(_reason, state),
+        do: {:noreply, state}
 
       @doc false
       def before_publication(_payload, _routing_key, _meta, state),
@@ -182,6 +240,7 @@ defmodule Hare.Publisher do
         do: :ok
 
       defoverridable [init: 1, terminate: 2,
+                      handle_connected: 1, handle_disconnected: 2,
                       before_publication: 4, after_publication: 4,
                       handle_call: 3, handle_cast: 2, handle_info: 2]
     end
@@ -255,13 +314,27 @@ defmodule Hare.Publisher do
   end
 
   @doc false
-  def declare(chan, %{declaration: declaration} = state) do
-    case Declaration.run(declaration, chan) do
-      {:ok, exchange} ->
-        {:ok, State.declared(state, exchange)}
+  def connected(chan, %{mod: mod, given: given, declaration: declaration} = state) do
+    with {:noreply, new_given} <- mod.handle_connected(given),
+         new_state             <- State.set(state, new_given),
+         {:ok, exchange}       <- Declaration.run(declaration, chan) do
+      {:ok, State.connected(new_state, exchange)}
+    else
+      {:stop, reason, new_given} -> {:stop, reason, State.set(state, new_given)}
+      {:error, reason} -> {:stop, reason, state}
+    end
+  end
 
-      {:error, reason} ->
-        {:stop, reason, state}
+  @doc false
+  def disconnected(reason, %{mod: mod, given: given} = state) do
+    new_state = State.disconnected(state)
+
+    case mod.handle_disconnected(reason, given) do
+      {:noreply, new_given} ->
+        {:ok, State.set(new_state, new_given)}
+
+      {:stop, reason, new_given} ->
+        {:stop, reason, State.set(new_state, new_given)}
     end
   end
 
@@ -315,6 +388,9 @@ defmodule Hare.Publisher do
   def terminate(reason, %{mod: mod, given: given}),
     do: mod.terminate(reason, given)
 
+  defp perform(_payload, _key, _opts, given, %{connected: false} = state) do
+    {:noreply, State.set(state, given)}
+  end
   defp perform(payload, key, opts, given, %{mod: mod, exchange: exchange} = state) do
     Exchange.publish(exchange, payload, key, opts)
 
