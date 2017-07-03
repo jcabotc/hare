@@ -92,6 +92,20 @@ defmodule Hare.Consumer do
               {:stop, reason :: term}
 
   @doc """
+  Called when the consumer process has opened AMQP channel before registering
+  itself as a consumer in AMQP broker.
+
+  Returning `{:noreply, state}` will cause the process to enter the main loop
+  with the given state.
+
+  Returning `{:stop, reason, state}` will terminate the main loop and call
+  `terminate(reason, state)` before the process exits with reason `reason`.
+  """
+  @callback handle_connected(state) ::
+              {:noreply, state} |
+              {:stop, reason :: term, state}
+
+  @doc """
   Called when the AMQP server has registered the process as a consumer and it
   will start to receive messages.
 
@@ -99,9 +113,23 @@ defmodule Hare.Consumer do
   with the given state.
 
   Returning `{:stop, reason, state}` will terminate the main loop and call
-  `terminate(reason, state)` before the process exists with reason `reason`.
+  `terminate(reason, state)` before the process exits with reason `reason`.
   """
   @callback handle_ready(meta, state) ::
+              {:noreply, state} |
+              {:stop, reason :: term, state}
+
+  @doc """
+  Called when the AMQP consumer has been disconnected from the AMQP broker.
+
+  Returning `{:noreply, state}` causes the process to enter the main loop with
+  the given state. The process will not consume any new messages until connection
+  to AMQP broker is established again.
+
+  Returning `{:stop, reason, state}` will terminate the main loop and call
+  `terminate(reason, state)` before the process exits with reason `reason`.
+  """
+  @callback handle_disconnected(reason :: term, state) ::
               {:noreply, state} |
               {:stop, reason :: term, state}
 
@@ -124,7 +152,7 @@ defmodule Hare.Consumer do
   `Hare.Consumer.reject/2`.
 
   Returning `{:stop, reason, state}` will terminate the main loop and call
-  `terminate(reason, state)` before the process exists with reason `reason`.
+  `terminate(reason, state)` before the process exits with reason `reason`.
   """
   @callback handle_message(payload, meta, state) ::
               {:reply, action, state} |
@@ -138,12 +166,12 @@ defmodule Hare.Consumer do
   `:reply`, `:noreply` and `:stop` return tuples behave the same.
   """
   @callback handle_call(request :: term, GenServer.from, state) ::
-    {:reply, reply :: term, state} |
-    {:reply, reply :: term, state, timeout | :hibernate} |
-    {:noreply, state} |
-    {:noreply, state, timeout | :hibernate} |
-    {:stop, reason :: term, state} |
-    {:stop, reason :: term, reply :: term, state}
+              {:reply, reply :: term, state} |
+              {:reply, reply :: term, state, timeout | :hibernate} |
+              {:noreply, state} |
+              {:noreply, state, timeout | :hibernate} |
+              {:stop, reason :: term, state} |
+              {:stop, reason :: term, reply :: term, state}
 
   @doc """
   Called when the process receives a cast message sent by `cast/3`. This
@@ -151,9 +179,9 @@ defmodule Hare.Consumer do
   `:noreply` and `:stop` return tuples behave the same.
   """
   @callback handle_cast(request :: term, state) ::
-    {:noreply, state} |
-    {:noreply, state, timeout | :hibernate} |
-    {:stop, reason :: term, state}
+              {:noreply, state} |
+              {:noreply, state, timeout | :hibernate} |
+              {:stop, reason :: term, state}
 
   @doc """
   Called when the process receives a message.
@@ -162,7 +190,7 @@ defmodule Hare.Consumer do
   with the given state.
 
   Returning `{:stop, reason, state}` will not send the message, terminate the
-  main loop and call `terminate(reason, state)` before the process exists with
+  main loop and call `terminate(reason, state)` before the process exits with
   reason `reason`.
   """
   @callback handle_info(meta, state) ::
@@ -187,7 +215,15 @@ defmodule Hare.Consumer do
         do: {:ok, initial}
 
       @doc false
+      def handle_connected(state),
+        do: {:noreply, state}
+
+      @doc false
       def handle_ready(_meta, state),
+        do: {:noreply, state}
+
+      @doc false
+      def handle_disconnected(_reason, state),
         do: {:noreply, state}
 
       @doc false
@@ -211,7 +247,8 @@ defmodule Hare.Consumer do
         do: :ok
 
       defoverridable [init: 1, terminate: 2,
-                      handle_ready: 2, handle_message: 3,
+                      handle_connected: 1, handle_ready: 2, handle_disconnected: 2,
+                      handle_message: 3,
                       handle_call: 3, handle_cast: 2, handle_info: 2]
     end
   end
@@ -306,12 +343,28 @@ defmodule Hare.Consumer do
   end
 
   @doc false
-  def declare(chan, %{declaration: declaration} = state) do
-    with {:ok, queue, exchange} <- Declaration.run(declaration, chan),
+  def connected(chan, %{mod: mod, given: given, declaration: declaration} = state) do
+    with {:noreply, new_given}  <- mod.handle_connected(given),
+         new_state              <- State.set(state, new_given),
+         {:ok, queue, exchange} <- Declaration.run(declaration, chan),
          {:ok, new_queue}       <- Queue.consume(queue) do
-      {:ok, State.declared(state, new_queue, exchange)}
+      {:ok, State.connected(new_state, new_queue, exchange)}
     else
+      {:stop, reason, new_given} -> {:stop, reason, State.set(state, new_given)}
       {:error, reason} -> {:stop, reason, state}
+    end
+  end
+
+  @doc false
+  def disconnected(reason, %{mod: mod, given: given} = state) do
+    new_state = State.disconnected(state)
+
+    case mod.handle_disconnected(reason, given) do
+      {:noreply, new_given} ->
+        {:ok, State.set(new_state, new_given)}
+
+      {:stop, reason, new_given} ->
+        {:stop, reason, State.set(new_state, new_given)}
     end
   end
 
@@ -353,6 +406,9 @@ defmodule Hare.Consumer do
 
       {:cancel_ok, _meta} ->
         {:stop, {:shutdown, :cancelled}, state}
+
+      {:cancel, _meta} ->
+        {:stop, :cancelled, state}
 
       :unknown ->
         handle_async(message, :handle_info, state)

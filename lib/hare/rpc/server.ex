@@ -88,6 +88,20 @@ defmodule Hare.RPC.Server do
               GenServer.on_start
 
   @doc """
+  Called when the RPC server process has opened AMQP channel before registering
+  itself as a consumer.
+
+  Returning `{:noreply, state}` will cause the process to enter the main loop
+  with the given state.
+
+  Returning `{:stop, reason, state}` will terminate the main loop and call
+  `terminate(reason, state)` before the process exits with reason `reason`.
+  """
+  @callback handle_connected(state) ::
+              {:noreply, state} |
+              {:stop, reason :: term, state}
+
+  @doc """
   Called when the AMQP server has registered the process as a RPC server and it
   will start to receive requests.
 
@@ -95,9 +109,23 @@ defmodule Hare.RPC.Server do
   with the given state.
 
   Returning `{:stop, reason, state}` will terminate the main loop and call
-  `terminate(reason, state)` before the process exists with reason `reason`.
+  `terminate(reason, state)` before the process exits with reason `reason`.
   """
   @callback handle_ready(meta, state) ::
+              {:noreply, state} |
+              {:stop, reason :: term, state}
+
+  @doc """
+  Called when the AMQP server has been disconnected from the AMQP broker.
+
+  Returning `{:noreply, state}` causes the process to enter the main loop with
+  the given state. The server will not consume any new messages until connection
+  to AMQP broker is established again.
+
+  Returning `{:stop, reason, state}` will terminate the main loop and call
+  `terminate(reason, state)` before the process exits with reason `reason`.
+  """
+  @callback handle_disconnected(reason :: term, state) ::
               {:noreply, state} |
               {:stop, reason :: term, state}
 
@@ -117,11 +145,34 @@ defmodule Hare.RPC.Server do
   respond to the client.
 
   Returning `{:stop, reason, state}` will terminate the main loop and call
-  `terminate(reason, state)` before the process exists with reason `reason`.
+  `terminate(reason, state)` before the process exits with reason `reason`.
   """
   @callback handle_request(payload, meta, state) ::
               {:noreply, state} |
               {:reply, response :: binary, state} |
+              {:stop, reason :: term, state}
+
+  @doc """
+  Called when the process receives a call message sent by `call/3`. This
+  callback has the same arguments as the `GenServer` equivalent and the
+  `:reply`, `:noreply` and `:stop` return tuples behave the same.
+  """
+  @callback handle_call(request :: term, GenServer.from, state) ::
+              {:reply, reply :: term, state} |
+              {:reply, reply :: term, state, timeout | :hibernate} |
+              {:noreply, state} |
+              {:noreply, state, timeout | :hibernate} |
+              {:stop, reason :: term, state} |
+              {:stop, reason :: term, reply :: term, state}
+
+  @doc """
+  Called when the process receives a cast message sent by `cast/3`. This
+  callback has the same arguments as the `GenServer` equivalent and the
+  `:noreply` and `:stop` return tuples behave the same.
+  """
+  @callback handle_cast(request :: term, state) ::
+              {:noreply, state} |
+              {:noreply, state, timeout | :hibernate} |
               {:stop, reason :: term, state}
 
   @doc """
@@ -131,7 +182,7 @@ defmodule Hare.RPC.Server do
   with the given state.
 
   Returning `{:stop, reason, state}` will not send the message, terminate the
-  main loop and call `terminate(reason, state)` before the process exists with
+  main loop and call `terminate(reason, state)` before the process exits with
   reason `reason`.
   """
   @callback handle_info(meta, state) ::
@@ -155,7 +206,15 @@ defmodule Hare.RPC.Server do
         do: {:ok, initial}
 
       @doc false
+      def handle_connected(state),
+        do: {:noreply, state}
+
+      @doc false
       def handle_ready(_meta, state),
+        do: {:noreply, state}
+
+      @doc false
+      def handle_disconnected(_reason, state),
         do: {:noreply, state}
 
       @doc false
@@ -179,7 +238,8 @@ defmodule Hare.RPC.Server do
         do: :ok
 
       defoverridable [init: 1, terminate: 2,
-                      handle_ready: 2, handle_request: 3,
+                      handle_connected: 1, handle_ready: 2, handle_disconnected: 2,
+                      handle_request: 3,
                       handle_call: 3, handle_cast: 2, handle_info: 2]
     end
   end
@@ -259,12 +319,28 @@ defmodule Hare.RPC.Server do
   end
 
   @doc false
-  def declare(chan, %{declaration: declaration} = state) do
-    with {:ok, queue, exchange} <- Declaration.run(declaration, chan),
+  def connected(chan, %{declaration: declaration, mod: mod, given: given} = state) do
+    with {:noreply, new_given}  <- mod.handle_connected(given),
+         new_state              <- State.set(state, new_given),
+         {:ok, queue, exchange} <- Declaration.run(declaration, chan),
          {:ok, new_queue}       <- Queue.consume(queue, no_ack: true) do
-      {:ok, State.declared(state, new_queue, exchange)}
+      {:ok, State.connected(new_state, new_queue, exchange)}
     else
+      {:stop, reason, new_given} -> {:stop, reason, State.set(state, new_given)}
       {:error, reason} -> {:stop, reason, state}
+    end
+  end
+
+  @doc false
+  def disconnected(reason, %{mod: mod, given: given} = state) do
+    new_state = State.disconnected(state)
+
+    case mod.handle_disconnected(reason, given) do
+      {:noreply, new_given} ->
+        {:ok, State.set(new_state, new_given)}
+
+      {:stop, reason, new_given} ->
+        {:stop, reason, State.set(new_state, new_given)}
     end
   end
 
@@ -305,6 +381,9 @@ defmodule Hare.RPC.Server do
         handle_mod_message(payload, meta, state)
 
       {:cancel_ok, _meta} ->
+        {:stop, {:shutdown, :cancelled}, state}
+
+      {:cancel, _meta} ->
         {:stop, :cancelled, state}
 
       :unknown ->

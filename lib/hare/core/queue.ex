@@ -240,11 +240,13 @@ defmodule Hare.Core.Queue do
     * `{:consume_ok, meta}` - The process has been registered as a consumer and messages from the queue will be sent
     * `{:deliver, payload, meta}` - This is an actual queue message
     * `{:cancel_ok, meta}` - The process has been unregistered as a consumer
+    * `{:cancel, meta}` - The process has been unexpectedly unregistered as a consumer by server
     * `:unknown - The message is not a known AMQP message
   """
   @spec handle(t, message :: term) :: {:consume_ok, meta} |
                                       {:deliver, payload, meta} |
                                       {:cancel_ok, meta} |
+                                      {:cancel, meta} |
                                       {:return, payload, meta} |
                                       :unknown
   def handle(%Queue{chan: %{adapter: adapter}}, message),

@@ -10,6 +10,11 @@ defmodule Hare.RPC.ServerTest do
     def start_link(conn, config, pid),
       do: Server.start_link(__MODULE__, conn, config, pid)
 
+    def handle_connected(pid) do
+      send(pid, :connected)
+      {:noreply, pid}
+    end
+
     def handle_ready(meta, pid) do
       send(pid, {:ready, meta})
       {:noreply, pid}
@@ -57,6 +62,7 @@ defmodule Hare.RPC.ServerTest do
                       opts: [no_ack: true]]]
 
     {:ok, rpc_server} = EchoTestServer.start_link(conn, config, self())
+    assert_receive :connected
 
     send(rpc_server, {:consume_ok, %{bar: "baz"}})
     assert_receive {:ready, %{bar: "baz", queue: queue, exchange: exchange}}
