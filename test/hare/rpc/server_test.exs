@@ -108,7 +108,7 @@ defmodule Hare.RPC.ServerTest do
 
     Adapter.Backdoor.unlink(given_chan_1)
     Adapter.Backdoor.crash(given_chan_1)
-    Process.sleep(5)
+    Process.sleep(20)
 
     payload = "explicit - another message"
     meta    = %{reply_to: "response_queue", correlation_id: 11}
